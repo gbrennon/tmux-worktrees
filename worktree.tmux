@@ -14,6 +14,12 @@ WORKTREE_KEY="${WORKTREE_KEY:-W}"
 CLEANUP_KEY="$(tmux show-option -gv @worktree-cleanup-key 2>/dev/null)"
 CLEANUP_KEY="${CLEANUP_KEY:-D}"
 
+# Unbind every key currently pointing to this plugin so stale bindings
+# (from previous loads / key changes) don't linger after a reload.
+for key in $(tmux list-keys -T prefix 2>/dev/null | grep -F "$SCRIPT" | awk '{print $4}'); do
+  tmux unbind-key -T prefix "$key" 2>/dev/null
+done
+
 # Main: fzf popup to select or create a worktree (prefix + W by default)
 tmux bind-key -T prefix "$WORKTREE_KEY" run-shell -b "$SCRIPT choose"
 
