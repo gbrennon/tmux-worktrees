@@ -34,8 +34,16 @@ sudo dnf install fzf | sudo apt install fzf | sudo pacman -S fzf | brew install 
 | `prefix` + `W` | Create or switch to worktree  | [docs](docs/create-worktree.md) |
 | `prefix` + `D` | Remove merged/stale worktrees | [docs](docs/cleanup-worktrees.md) |
 
-> `prefix` is `Ctrl-b` by default.  [Customise the keys](docs/customise-keys.md)
-> or [change the shell](docs/customise-shell.md) that opens in new windows.
+> `prefix` is `Ctrl-b` by default.  Override the keys by setting these
+> variables in `~/.tmux.conf` **before** the plugin line — for example:
+>
+> ```tmux
+> set -g @worktree-key 'T'           # prefix + T to pick a worktree
+> set -g @worktree-cleanup-key 'X'   # prefix + X to clean up
+> ```
+>
+> More details: [Customise the keys](docs/customise-keys.md).
+> You can also [change the shell](docs/customise-shell.md) that opens in new windows.
 
 ---
 
