@@ -12,7 +12,7 @@ jobs:
     steps:
       - name: Install dependencies
         run: |
-          apk add --no-cache bash git fzf tmux make
+          apt-get update && apt-get install -y bash git fzf tmux make
 
       - name: Checkout
         uses: actions/checkout@v6
