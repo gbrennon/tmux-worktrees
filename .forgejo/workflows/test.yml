@@ -1,0 +1,23 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: codeberg-tiny
+    steps:
+      - name: Install dependencies
+        run: |
+          apk add --no-cache bash git fzf tmux make
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          submodules: 'true'
+
+      - name: Run tests
+        run: make
