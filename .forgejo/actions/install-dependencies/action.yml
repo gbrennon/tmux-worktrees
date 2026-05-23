@@ -1,0 +1,9 @@
+  name: Install dependencies
+  description: Install project dependencies
+
+  runs:
+    using: composite
+
+    steps:
+      - shell: bash
+        run: apt-get update && apt-get install -y bash git fzf tmux make

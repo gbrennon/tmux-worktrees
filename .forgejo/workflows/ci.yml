@@ -19,9 +19,7 @@ jobs:
         with:
           submodules: true
 
-      - name: Install dependencies
-        run: |
-          apk add --no-cache bash git fzf tmux
+      - uses: ./.forgejo/actions/install-dependencies
 
       - name: Run tests
         run: make test
