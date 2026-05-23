@@ -1,5 +1,10 @@
-test_is_merged_ancestor_returns_true() {
-    local repo result feat_head
+#!/usr/bin/env bats
+
+load 'test_helper/bats-support/load'
+load 'test_helper/bats-assert/load'
+load 'test_helper'
+
+@test "is_merged — merged ancestor returns true" {
     repo=$(setup_temp_repo)
     cd "$repo" || return 1
 
@@ -15,18 +20,17 @@ test_is_merged_ancestor_returns_true() {
 
     git checkout "$feat_head" >/dev/null 2>&1
 
-    is_merged "." "test-feat" "main" "true"
-    result=$?
+    run is_merged "." "test-feat" "main" "true"
 
     git checkout main >/dev/null 2>&1
     git branch -D "test-feat" >/dev/null 2>&1
     git branch -D "origin/main" >/dev/null 2>&1
     teardown_temp_repo "$repo"
-    assert_eq "0" "$result" "merged branch should return 0"
+
+    assert_success
 }
 
-test_is_merged_not_ancestor_returns_false() {
-    local repo result
+@test "is_merged — unmerged branch returns false" {
     repo=$(setup_temp_repo)
     cd "$repo" || return 1
 
@@ -40,18 +44,17 @@ test_is_merged_not_ancestor_returns_false() {
 
     git checkout "test-unmerged" >/dev/null 2>&1
 
-    is_merged "." "test-unmerged" "main" "false"
-    result=$?
+    run is_merged "." "test-unmerged" "main" "false"
 
     git checkout main >/dev/null 2>&1
     git branch -D "test-unmerged" >/dev/null 2>&1
     git branch -D "origin/main" >/dev/null 2>&1
     teardown_temp_repo "$repo"
-    assert_eq "1" "$result" "unmerged branch should return 1"
+
+    assert_failure
 }
 
-test_is_merged_squash_not_ancestor() {
-    local repo result
+@test "is_merged — squash merge is not an ancestor" {
     repo=$(setup_temp_repo)
     cd "$repo" || return 1
 
@@ -69,18 +72,17 @@ test_is_merged_squash_not_ancestor() {
 
     git checkout "test-squash" >/dev/null 2>&1
 
-    is_merged "." "test-squash" "main" "false"
-    result=$?
+    run is_merged "." "test-squash" "main" "false"
 
     git checkout main >/dev/null 2>&1
     git branch -D "test-squash" >/dev/null 2>&1
     git branch -D "origin/main" >/dev/null 2>&1
     teardown_temp_repo "$repo"
-    assert_eq "1" "$result" "squash merge is not an ancestor"
+
+    assert_failure
 }
 
-test_is_merged_with_auto_fetch_disabled() {
-    local repo result feat_head
+@test "is_merged — works with auto_fetch disabled" {
     repo=$(setup_temp_repo)
     cd "$repo" || return 1
 
@@ -96,18 +98,17 @@ test_is_merged_with_auto_fetch_disabled() {
 
     git checkout "$feat_head" >/dev/null 2>&1
 
-    is_merged "." "test-no-auto" "main" "false"
-    result=$?
+    run is_merged "." "test-no-auto" "main" "false"
 
     git checkout main >/dev/null 2>&1
     git branch -D "test-no-auto" >/dev/null 2>&1
     git branch -D "origin/main" >/dev/null 2>&1
     teardown_temp_repo "$repo"
-    assert_eq "0" "$result" "should be detected via ancestry even with auto_fetch disabled"
+
+    assert_success
 }
 
-test_is_merged_fast_forward_detected() {
-    local repo result
+@test "is_merged — fast-forward merge detected" {
     repo=$(setup_temp_repo)
     cd "$repo" || return 1
 
@@ -122,36 +123,31 @@ test_is_merged_fast_forward_detected() {
 
     git checkout "test-ff" >/dev/null 2>&1
 
-    is_merged "." "test-ff" "main" "true"
-    result=$?
+    run is_merged "." "test-ff" "main" "true"
 
     git checkout main >/dev/null 2>&1
     git branch -D "test-ff" >/dev/null 2>&1
     git branch -D "origin/main" >/dev/null 2>&1
     teardown_temp_repo "$repo"
-    assert_eq "0" "$result" "fast-forward merge should be detected"
+
+    assert_success
 }
 
-test_is_merged_no_network_calls() {
-    local repo result start end elapsed
+@test "is_merged — fails fast without network calls" {
     repo=$(setup_temp_repo)
     cd "$repo" || return 1
 
-    # No origin remote — is_merged should fail fast on the local check only,
-    # without making any network calls.  Must complete in under 1 second.
+    # is_merged should complete instantly — no origin remote
     start=$(date +%s)
-    is_merged "." "some-branch" "main" "true"
-    result=$?
+    run is_merged "." "some-branch" "main" "true"
     end=$(date +%s)
     elapsed=$((end - start))
 
     teardown_temp_repo "$repo"
 
     # Without origin/main ref the ancestry check fails → not merged
-    assert_eq "1" "$result" "missing origin/main ref should return not-merged" || return 1
-    if [[ $elapsed -ge 1 ]]; then
-        echo "    took ${elapsed}s — should be instantaneous (no network)" >&2
-        return 1
-    fi
-    
+    assert_failure
+
+    # Must complete in under 1 second (no network calls)
+    assert [ "$elapsed" -lt 1 ]
 }
