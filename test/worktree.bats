@@ -152,3 +152,58 @@ load 'test_helper'
 
     teardown_temp_repo "$repo"
 }
+
+@test "list_worktrees — works with custom directory name" {
+    repo=$(setup_temp_repo)
+    cd "$repo" || return 1
+
+    mkdir -p "custom-wt"
+    output=$(create_worktree "custom-wt/test-feat" "test-feat" "main" 2>&1) || {
+        teardown_temp_repo "$repo"
+        skip "git worktree add failed: $output"
+    }
+
+    run list_worktrees "custom-wt"
+
+    remove_worktree "custom-wt/test-feat" >/dev/null 2>&1
+    teardown_temp_repo "$repo"
+
+    assert_success
+    refute_output ""
+}
+
+@test "create_worktree and remove_worktree — with custom directory name" {
+    repo=$(setup_temp_repo)
+    cd "$repo" || return 1
+
+    mkdir -p "custom-wt"
+    output=$(create_worktree "custom-wt/test-feat" "test-feat" "main" 2>&1) || {
+        teardown_temp_repo "$repo"
+        skip "git worktree add failed: $output"
+    }
+
+    assert test -d "custom-wt/test-feat"
+
+    remove_worktree "custom-wt/test-feat" >/dev/null 2>&1
+    refute test -d "custom-wt/test-feat"
+    teardown_temp_repo "$repo"
+}
+
+@test "list_worktree_names — works with custom directory name" {
+    repo=$(setup_temp_repo)
+    cd "$repo" || return 1
+
+    mkdir -p "custom-wt"
+    output=$(create_worktree "custom-wt/test-feat" "test-feat" "main" 2>&1) || {
+        teardown_temp_repo "$repo"
+        skip "git worktree add failed: $output"
+    }
+
+    run list_worktree_names "custom-wt"
+
+    remove_worktree "custom-wt/test-feat" >/dev/null 2>&1
+    teardown_temp_repo "$repo"
+
+    assert_success
+    assert_output "test-feat"
+}

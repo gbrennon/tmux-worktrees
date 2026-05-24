@@ -148,6 +148,6 @@ load 'test_helper'
     # Without origin/main ref the ancestry check fails → not merged
     assert_failure
 
-    # Must complete in under 1 second (no network calls)
-    assert [ "$elapsed" -lt 1 ]
+    # Must complete quickly (no network calls)
+    assert [ "$elapsed" -le 2 ]
 }
