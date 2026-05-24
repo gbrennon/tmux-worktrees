@@ -7,8 +7,8 @@
 
 If the branch doesn't exist yet, tmux-worktrees will:
 
-- Create a worktree at `.worktrees/feat-foo` inside your repo
-  (slashes in branch names are replaced with dashes for the directory),
+- Create a worktree (by default at `.worktrees/feat-foo` inside your repo;
+  slashes in branch names are replaced with dashes for the directory),
   branching off `main` (or `master`, whichever exists).
 - Open a new tmux window named `wt-feat/foo` with your shell's
   working directory already set to that worktree.
