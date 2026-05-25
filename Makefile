@@ -9,19 +9,11 @@ FILTER ?=
 test:
 ifdef KCOV
 	rm -rf $(KCOV_DIR) $(KCOV_DIR)-direct
-	kcov --include-path="$(CURDIR)/scripts" --bash-parse-files-in-dir="$(CURDIR)/scripts" --clean $(KCOV_DIR) \
-	  $(BATS) $(TEST_DIR)/; \
-	EXIT_BATS=$$?; \
-	kcov --include-path="$(CURDIR)/scripts" --bash-parse-files-in-dir="$(CURDIR)/scripts" \
-	  $(KCOV_DIR)-direct $(TEST_DIR)/direct-coverage.sh 2>/dev/null; \
-	EXIT_DIRECT=$$?; \
-	EXIT=0; \
-	if [ $$EXIT_BATS -ne 0 ] || [ $$EXIT_DIRECT -ne 0 ]; then EXIT=1; fi; \
+	kcov ... $(BATS) --formatter tap $(TEST_DIR)/ 2>&1 | tee /tmp/bats-out.txt; EXIT_BATS=$${PIPESTATUS[0]}; \
+	kcov ... $(TEST_DIR)/direct-coverage.sh 2>/dev/null; EXIT_DIRECT=$$?; \
 	python3 test/coverage-report.py $(KCOV_DIR) $(KCOV_DIR)-direct; \
-	exit $$EXIT
-else
-	@echo "  kcov not found — install kcov for coverage metrics (https://github.com/SimonKagstrom/kcov)"
-	$(BATS) $(TEST_DIR)/ && $(TEST_DIR)/direct-coverage.sh
+	grep '^not ok' /tmp/bats-out.txt | sed 's/^not ok /  FAIL: /' ; \
+	exit $$(( EXIT_BATS || EXIT_DIRECT ))
 endif
 
 coverage:
