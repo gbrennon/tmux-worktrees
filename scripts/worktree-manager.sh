@@ -6,6 +6,8 @@ source "$DIR/lib/worktree.sh"
 source "$DIR/lib/merge.sh"
 source "$DIR/lib/tmux.sh"
 source "$DIR/lib/select.sh"
+source "$DIR/create-worktree.sh"
+source "$DIR/resume-worktree.sh"
 
 create_or_resume() {
     local branch="$1"
@@ -106,9 +108,11 @@ cleanup_worktrees() {
 }
 
 case "${1:-}" in
-    "")        select_worktree ;;
+    "")              select_worktree ;;
+    create)          create_worktree_and_open "${2:-}" ;;
+    resume)          resume_worktree "${2:-}" ;;
     create-worktree) create_or_resume "${2:-}" ;;
-    choose)    select_worktree ;;
-    cleanup)   cleanup_worktrees ;;
-    *)         show_error "Unknown command: $1"; exit 0 ;;
+    choose)          select_worktree ;;
+    cleanup)         cleanup_worktrees ;;
+    *)               show_error "Unknown command: $1"; exit 0 ;;
 esac
