@@ -77,13 +77,13 @@ cleanup_worktrees() {
     auto_fetch=$(tmux show-option -gv @worktree-auto-fetch 2>/dev/null)
     auto_fetch="${auto_fetch:-true}"
     if [[ "$auto_fetch" != "false" ]]; then
-        git fetch origin "$default_branch" --no-tags --depth=1 2>/dev/null &
+        git fetch origin "$default_branch" --no-tags 2>/dev/null
     fi
     local fzf_input=""
     local wt_dir branch
     while IFS= read -r wt_dir; do
         branch=$(worktree_branch "$wt_dir")
-        if is_merged "$wt_dir" "$branch" "$default_branch" "$auto_fetch"; then
+        if is_merged "$wt_dir" "$branch" "$default_branch"; then
             fzf_input+="✓ merged  | $branch"$'\t'"$wt_dir"$'\n'
         else
             fzf_input+="✗ active  | $branch"$'\t'"$wt_dir"$'\n'
