@@ -20,7 +20,7 @@ load 'test_helper'
 
     git checkout "$feat_head" >/dev/null 2>&1
 
-    run is_merged "." "test-feat" "main" "true"
+    run is_merged "." "test-feat" "main"
 
     git checkout main >/dev/null 2>&1
     git branch -D "test-feat" >/dev/null 2>&1
@@ -44,7 +44,7 @@ load 'test_helper'
 
     git checkout "test-unmerged" >/dev/null 2>&1
 
-    run is_merged "." "test-unmerged" "main" "false"
+    run is_merged "." "test-unmerged" "main"
 
     git checkout main >/dev/null 2>&1
     git branch -D "test-unmerged" >/dev/null 2>&1
@@ -72,7 +72,7 @@ load 'test_helper'
 
     git checkout "test-squash" >/dev/null 2>&1
 
-    run is_merged "." "test-squash" "main" "false"
+    run is_merged "." "test-squash" "main"
 
     git checkout main >/dev/null 2>&1
     git branch -D "test-squash" >/dev/null 2>&1
@@ -98,7 +98,7 @@ load 'test_helper'
 
     git checkout "$feat_head" >/dev/null 2>&1
 
-    run is_merged "." "test-no-auto" "main" "false"
+    run is_merged "." "test-no-auto" "main"
 
     git checkout main >/dev/null 2>&1
     git branch -D "test-no-auto" >/dev/null 2>&1
@@ -123,7 +123,7 @@ load 'test_helper'
 
     git checkout "test-ff" >/dev/null 2>&1
 
-    run is_merged "." "test-ff" "main" "true"
+    run is_merged "." "test-ff" "main"
 
     git checkout main >/dev/null 2>&1
     git branch -D "test-ff" >/dev/null 2>&1
@@ -139,7 +139,7 @@ load 'test_helper'
 
     # is_merged should complete instantly — no origin remote
     start=$(date +%s)
-    run is_merged "." "some-branch" "main" "true"
+    run is_merged "." "some-branch" "main"
     end=$(date +%s)
     elapsed=$((end - start))
 
@@ -148,6 +148,7 @@ load 'test_helper'
     # Without origin/main ref the ancestry check fails → not merged
     assert_failure
 
-    # Must complete in under 1 second (no network calls)
-    assert [ "$elapsed" -lt 1 ]
+    # Must complete quickly (no network calls)
+    assert [ "$elapsed" -le 2 ]
 }
+

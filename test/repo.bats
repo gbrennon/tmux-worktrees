@@ -144,3 +144,24 @@ load 'test_helper'
     teardown_temp_repo "$repo"
     assert_equal "$before" "$after"
 }
+
+@test "ensure_worktrees_dir — works with custom directory name" {
+    repo=$(setup_temp_repo)
+    cd "$repo" || return 1
+
+    ensure_worktrees_dir "my-worktrees"
+
+    assert test -d "$repo/my-worktrees"
+    teardown_temp_repo "$repo"
+}
+
+@test "ensure_worktrees_dir — adds custom dir name to exclude" {
+    repo=$(setup_temp_repo)
+    cd "$repo" || return 1
+
+    ensure_worktrees_dir "my-worktrees"
+
+    run grep -qxF "my-worktrees/" .git/info/exclude
+    teardown_temp_repo "$repo"
+    assert_success
+}

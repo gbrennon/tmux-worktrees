@@ -19,8 +19,11 @@ create_or_resume() {
         exit 0
     }
     cd "$repo_root" || { show_error "Cannot cd to $repo_root"; exit 0; }
-    ensure_worktrees_dir ".worktrees"
-    local target=".worktrees/$(echo "$branch" | tr '/' '-')"
+    local worktree_dir
+    worktree_dir=$(resolve_worktree_dir)
+    ensure_worktrees_dir "$worktree_dir"
+    local target
+    target="$worktree_dir/$(echo "$branch" | tr '/' '-')"
     if [[ ! -d "$target" ]]; then
         local default_branch output
         default_branch=$(resolve_default_branch)
@@ -42,17 +45,19 @@ select_worktree() {
         exit 0
     }
     cd "$repo_root" || { show_error "Cannot cd to $repo_root"; exit 0; }
+    local worktree_dir
+    worktree_dir=$(resolve_worktree_dir)
     local existing branch
-    existing=$(list_worktree_names ".worktrees")
+    existing=$(list_worktree_names "$worktree_dir")
     if [[ -z "$existing" ]]; then
         branch=$(fzf_select_worktree "" "No worktrees yet — type a name and press Enter to create")
     else
         branch=$(fzf_select_worktree "$existing")
     fi
     [[ -z "$branch" ]] && exit 0
-    if [[ -d ".worktrees/$branch" ]]; then
+    if [[ -d "$worktree_dir/$branch" ]]; then
         local resolved
-        resolved=$(worktree_branch ".worktrees/$branch")
+        resolved=$(worktree_branch "$worktree_dir/$branch")
         [[ -n "$resolved" ]] && branch="$resolved"
     fi
     create_or_resume "$branch"
@@ -65,26 +70,28 @@ cleanup_worktrees() {
         exit 0
     }
     cd "$repo_root" || { show_error "Cannot cd to $repo_root"; exit 0; }
+    local worktree_dir
+    worktree_dir=$(resolve_worktree_dir)
     local default_branch auto_fetch
     default_branch=$(resolve_default_branch)
     auto_fetch=$(tmux show-option -gv @worktree-auto-fetch 2>/dev/null)
     auto_fetch="${auto_fetch:-true}"
     if [[ "$auto_fetch" != "false" ]]; then
-        git fetch origin "$default_branch" --no-tags --depth=1 2>/dev/null &
+        git fetch origin "$default_branch" --no-tags 2>/dev/null
     fi
     local fzf_input=""
     local wt_dir branch
     while IFS= read -r wt_dir; do
         branch=$(worktree_branch "$wt_dir")
-        if is_merged "$wt_dir" "$branch" "$default_branch" "$auto_fetch"; then
+        if is_merged "$wt_dir" "$branch" "$default_branch"; then
             fzf_input+="✓ merged  | $branch"$'\t'"$wt_dir"$'\n'
         else
             fzf_input+="✗ active  | $branch"$'\t'"$wt_dir"$'\n'
         fi
-    done < <(list_worktrees ".worktrees")
+    done < <(list_worktrees "$worktree_dir")
     local noinfo=""
     if [[ -z "$fzf_input" ]]; then
-        fzf_input="No worktrees found in .worktrees/ — press Enter to dismiss"
+        fzf_input="No worktrees found in $worktree_dir/ — press Enter to dismiss"
         noinfo="--no-info"
     fi
     local result

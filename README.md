@@ -40,10 +40,12 @@ sudo dnf install fzf | sudo apt install fzf | sudo pacman -S fzf | brew install 
 > ```tmux
 > set -g @worktree-key 'T'           # prefix + T to pick a worktree
 > set -g @worktree-cleanup-key 'X'   # prefix + X to clean up
+> set -g @worktree-dir 'my-trees'    # custom worktree directory
 > ```
 >
 > More details: [Customise the keys](docs/customise-keys.md).
 > You can also [change the shell](docs/customise-shell.md) that opens in new windows.
+> Or [change the worktree directory](docs/customise-worktree-dir.md).
 
 ---
 
@@ -53,8 +55,8 @@ sudo dnf install fzf | sudo apt install fzf | sudo pacman -S fzf | brew install 
 cd ~/my-project
 prefix + W
 ```
-Type `feat/foo` -> Enter.  A worktree is created at `.worktrees/feat-foo` and a
-new tmux window `wt-feat/foo` opens there.  Press `prefix + W` again to switch
+Type `feat/foo` -> Enter.  A worktree is created (by default at `.worktrees/feat-foo`)
+and a new tmux window `wt-feat/foo` opens there.  Press `prefix + W` again to switch
 between worktrees, `prefix + D` to clean up.
 
 > Examples use [conventional branch][conv-branch] prefixes (`feat/`, `fix/`,
@@ -72,6 +74,7 @@ between worktrees, `prefix + D` to clean up.
 | [Cleaning up](docs/cleanup-worktrees.md) | Removing worktrees and branches |
 | [Customise keys](docs/customise-keys.md) | Change `W` / `D` bindings |
 | [Customise shell](docs/customise-shell.md) | Launch `bash`, `zsh`, `vim`, `emacs`, etc. |
+| [Customise worktree dir](docs/customise-worktree-dir.md) | Use a different worktree directory |
 | [How it works](docs/how-it-works.md) | Under-the-hood architecture |
 
 ---

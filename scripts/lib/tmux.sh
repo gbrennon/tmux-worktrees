@@ -9,6 +9,16 @@ show_error() {
         tmux display-message -d 5000 "tmux-worktrees: $msg" 2>/dev/null || true
 }
 
+tmux_worktree_dir() {
+    tmux show-option -gv @worktree-dir 2>/dev/null || true
+}
+
+resolve_worktree_dir() {
+    local dir
+    dir=$(tmux_worktree_dir)
+    echo "${dir:-".worktrees"}"
+}
+
 tmux_shell_command() {
     local command
     command=$(tmux show-option -gv @worktree-command 2>/dev/null)
