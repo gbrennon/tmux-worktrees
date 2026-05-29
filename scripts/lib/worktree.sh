@@ -1,21 +1,27 @@
 list_worktrees() {
-    local worktrees_dir="$1"
-    find "$worktrees_dir" -mindepth 2 -name '.git' -type f -printf '%h\n' 2>/dev/null
+    local work_dir="${1:-.worktrees}"
+    git worktree list --porcelain | awk '/^worktree / {print $2}' | { grep "^$(pwd)/$work_dir/" || true; }
 }
 
 list_worktree_names() {
-    local worktrees_dir="$1"
-    find "$worktrees_dir" -mindepth 2 -name '.git' -type f \
-        -printf '%P\n' 2>/dev/null | sed 's|/\.git$||' | sort
+    git worktree list --porcelain | awk '/^worktree / {print $2}' | xargs -I {} basename {} | sort
 }
 
 create_worktree() {
     local target="$1" branch="$2" base="$3"
+
+    git fetch origin --quiet
+
+    if [[ "$base" == "main" || "$base" == "master" ]]; then
+        base="origin/$base"
+    fi
+
     git worktree add "$target" -b "$branch" "$base" 2>&1
 }
 
 remove_worktree() {
     local target="$1"
+
     git worktree remove --force "$target" 2>&1
 }
 
@@ -26,14 +32,14 @@ worktree_branch() {
 
 worktree_abspath() {
     local target="$1"
+
     if command -v realpath &>/dev/null; then
         realpath "$target"
-    else
-        (cd "$target" && pwd)
     fi
 }
 
 delete_local_branch() {
     local branch="$1"
+
     git branch -D "$branch" >/dev/null 2>&1 || true
 }
