@@ -4,15 +4,16 @@ list_worktrees() {
 }
 
 list_worktree_names() {
-    git worktree list --porcelain | awk '/^worktree / {print $2}' | xargs -I {} basename {} | sort
+    local work_dir="${1:-.worktrees}"
+    git worktree list --porcelain | awk '/^worktree / {print $2}' | { grep "^$(pwd)/$work_dir/" || true; } | xargs -I {} basename {} | sort
 }
 
 create_worktree() {
     local target="$1" branch="$2" base="$3"
 
-    git fetch origin --quiet
+    git fetch origin --quiet 2>/dev/null || true
 
-    if [[ "$base" == "main" || "$base" == "master" ]]; then
+    if git show-ref --verify --quiet "refs/remotes/origin/$base" 2>/dev/null; then
         base="origin/$base"
     fi
 
