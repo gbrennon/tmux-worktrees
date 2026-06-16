@@ -1,5 +1,7 @@
 .PHONY: test test-verbose test-filter test-tap coverage
 
+SHELL := /bin/bash
+
 BATS := $(if $(shell command -v bats 2>/dev/null),bats,./test/bats/bin/bats)
 KCOV := $(shell command -v kcov 2>/dev/null)
 TEST_DIR := test
@@ -17,7 +19,7 @@ test-kcov:
 test-bats:
 	$(BATS) --formatter tap $(TEST_DIR)/
 
-ifdef KCOV
+ifneq ($(KCOV),)
 test: test-kcov
 else
 test: test-bats
@@ -34,7 +36,7 @@ coverage-no-kcov:
 	@echo "  kcov not found — install kcov for coverage metrics (https://github.com/SimonKagstrom/kcov)"
 	@exit 1
 
-ifdef KCOV
+ifneq ($(KCOV),)
 coverage: coverage-kcov
 else
 coverage: coverage-no-kcov
