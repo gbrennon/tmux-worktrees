@@ -21,7 +21,11 @@ create_worktree() {
 }
 
 remove_worktree() {
-    local target="$1"
+    local target="$1" branch="${2:-}"
+
+    if [[ -n "$branch" ]]; then
+        tmux_kill_window "$branch"
+    fi
 
     git worktree remove --force "$target" 2>&1
 }

@@ -207,3 +207,77 @@ load 'test_helper'
     assert_success
     assert_output "test-feat"
 }
+
+@test "remove_worktree with branch — calls tmux_kill_window" {
+    repo=$(setup_temp_repo)
+    cd "$repo" || return 1
+
+    mkdir -p ".worktrees"
+    output=$(create_worktree ".worktrees/test-feat" "test-feat" "main" 2>&1) || {
+        teardown_temp_repo "$repo"
+        skip "git worktree add failed: $output"
+    }
+
+    local sentinel
+    sentinel=$(mktemp)
+
+    # Override tmux_kill_window to record the call
+    tmux_kill_window() { echo "$1" > "$sentinel"; }
+    export -f tmux_kill_window
+
+    run remove_worktree ".worktrees/test-feat" "test-feat"
+
+    assert_success
+    run cat "$sentinel"
+    assert_output "test-feat"
+    refute test -d ".worktrees/test-feat"
+    rm -f "$sentinel"
+    teardown_temp_repo "$repo"
+}
+
+@test "remove_worktree without branch — does not call tmux_kill_window" {
+    repo=$(setup_temp_repo)
+    cd "$repo" || return 1
+
+    mkdir -p ".worktrees"
+    output=$(create_worktree ".worktrees/test-feat" "test-feat" "main" 2>&1) || {
+        teardown_temp_repo "$repo"
+        skip "git worktree add failed: $output"
+    }
+
+    local sentinel
+    sentinel=$(mktemp)
+
+    # Override tmux_kill_window to record any call
+    tmux_kill_window() { echo "unexpected-call" > "$sentinel"; }
+    export -f tmux_kill_window
+
+    remove_worktree ".worktrees/test-feat" >/dev/null 2>&1
+
+    run test -s "$sentinel"
+    assert_failure
+    refute test -d ".worktrees/test-feat"
+    rm -f "$sentinel"
+    teardown_temp_repo "$repo"
+}
+
+@test "remove_worktree with branch — still removes worktree if tmux not found" {
+    repo=$(setup_temp_repo)
+    cd "$repo" || return 1
+
+    mkdir -p ".worktrees"
+    output=$(create_worktree ".worktrees/test-feat" "test-feat" "main" 2>&1) || {
+        teardown_temp_repo "$repo"
+        skip "git worktree add failed: $output"
+    }
+
+    # Override tmux to simulate a missing tmux server
+    tmux() { return 1; }
+    export -f tmux
+
+    run remove_worktree ".worktrees/test-feat" "test-feat"
+
+    assert_success
+    refute test -d ".worktrees/test-feat"
+    teardown_temp_repo "$repo"
+}
