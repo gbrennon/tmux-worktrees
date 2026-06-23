@@ -102,9 +102,8 @@ cleanup_worktrees() {
     fi
     branch=$(echo "$result" | cut -f1 | sed 's/^.*| *//')
     wt_dir=$(echo "$result" | cut -f2)
-    tmux_kill_window "$branch"
     local output
-    output=$(remove_worktree "$wt_dir") || {
+    output=$(remove_worktree "$wt_dir" "$branch") || {
         show_error "Worktree removal failed:\n\n$output"
         exit 0
     }
