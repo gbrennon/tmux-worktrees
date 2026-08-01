@@ -3,12 +3,11 @@ use std::io::IsTerminal;
 use std::path::Path;
 use std::process;
 
-mod git;
-mod merge;
-mod repo;
-mod select;
-mod tmux;
-mod worktree;
+use crate::core::{merge_checker::MergeChecker, project_locator::ProjectLocator, selector::{Selector, SelectionResult}, workspace_resolver::WorkspaceResolver};
+use crate::infrastructure::{git_executor::GitExecutor, tmux_executor::TmuxExecutor};
+
+mod core;
+mod infrastructure;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
@@ -25,7 +24,7 @@ fn main() {
     };
 
     if let Err(e) = result {
-        let _ = tmux::show_error(&format!("{e:#}"));
+        let _ = TmuxExecutor.show_error(&format!("{e:#}"));
     }
     process::exit(0);
 }
@@ -39,7 +38,7 @@ fn dispatch(args: &[String]) -> Result<()> {
         }
         "cleanup" => run_cleanup(),
         other => {
-            tmux::show_error(&format!("Unknown command: {other}"))?;
+            TmuxExecutor.show_error(&format!("Unknown command: {other}"))?;
             Ok(())
         }
     }
@@ -66,47 +65,50 @@ fn parse_args(args: &[String]) -> (String, Vec<String>) {
 }
 
 fn spawn_in_popup(args: &[String]) -> Result<()> {
-    let root = match repo::find_repo_root() {
+    let root = match find_repo_root() {
         Ok(r) => r,
         Err(e) => {
-            tmux::show_error(&format!("{e:#}"))?;
+            TmuxExecutor.show_error(&format!("{e:#}"))?;
             return Ok(());
         }
     };
     let exe = std::env::current_exe().context("Failed to resolve current executable")?;
-    let mut cmd = shell_quote(&exe.to_string_lossy());
+    let mut cmd = tmux_worktrees::utils::shell_quote(&exe.to_string_lossy());
     for a in args.iter().skip(1) {
         if a.starts_with("--root") {
             continue;
         }
         cmd.push(' ');
-        cmd.push_str(&shell_quote(a));
+        cmd.push_str(&tmux_worktrees::utils::shell_quote(a));
     }
     cmd.push_str(" --root=");
-    cmd.push_str(&shell_quote(&root));
-    let _ = tmux::run(&["display-popup", "-E", "-w", "60%", "-h", "50%", "-d", &root, &cmd]);
+    cmd.push_str(&tmux_worktrees::utils::shell_quote(&root));
+    let _ = TmuxExecutor.display_popup("60%", "50%", &root, &cmd);
     Ok(())
 }
 
 fn run_choose() -> Result<()> {
-    let repo_root = repo::find_repo_root().context("Failed to find repository root")?;
-    std::env::set_current_dir(&repo_root)?;
-    let worktree_dir = tmux::resolve_worktree_dir();
-    let existing = worktree::list_worktree_names(Path::new(&repo_root), &worktree_dir)?;
+    let repo_root = find_repo_root().context("Failed to find repository root")?;
+    let repo_root_path = Path::new(&repo_root);
+    std::env::set_current_dir(repo_root_path)?;
+    let worktree_dir = TmuxExecutor.resolve_workspace_dir();
+    let existing = list_workspace_names(repo_root_path, &worktree_dir)?;
     let header = if existing.is_empty() {
-        "No worktrees yet — type a name and press Enter to create"
+        "No workspaces yet — type a name and press Enter to create"
     } else {
         "Type to filter, Enter to select/create"
     };
-    let picked = select::fzf_pick(&existing, "Worktree> ", header, true)?;
+    let mut selector = Selector::new(existing.clone(), true);
+    let filtered = selector.filter("");
+    let picked = run_selector(&mut selector, &filtered, "Workspace> ", header)?;
     let branch = match picked {
-        select::Choice::Pick(i) => existing[i].clone(),
-        select::Choice::Type(q) => q,
-        select::Choice::Cancel => return Ok(()),
+        SelectionResult::Selected(i) => existing[i].clone(),
+        SelectionResult::Custom(q) => q,
+        SelectionResult::Cancelled => return Ok(()),
     };
-    let wt = Path::new(&repo_root).join(&worktree_dir).join(&branch);
-    if wt.is_dir() {
-        if let Ok(resolved) = worktree::branch(&wt) {
+    let ws = repo_root_path.join(&worktree_dir).join(&branch);
+    if ws.is_dir() {
+        if let Ok(resolved) = workspace_branch(&ws) {
             if !resolved.is_empty() && resolved != "?" {
                 return run_create(&resolved);
             }
@@ -115,81 +117,281 @@ fn run_choose() -> Result<()> {
     run_create(&branch)
 }
 
+fn run_selector(selector: &mut Selector, _filtered: &[usize], prompt: &str, header: &str) -> Result<SelectionResult> {
+    use crossterm::event::{self, Event};
+    use fuzzy_matcher::FuzzyMatcher;
+    use fuzzy_matcher::clangd::ClangdMatcher;
+    use ratatui::layout::{Constraint, Direction, Layout};
+    use ratatui::style::{Color, Style};
+    use ratatui::widgets::{Block, Borders, List, ListItem, ListState, Paragraph};
+
+    let mut terminal = setup_terminal()?;
+    let matcher = ClangdMatcher::default();
+
+    let result = loop {
+        let filtered: Vec<usize> = selector.items()
+            .iter()
+            .enumerate()
+            .filter_map(|(i, s)| {
+                if selector.query().is_empty() {
+                    Some(i)
+                } else {
+                    matcher.fuzzy_match(s, selector.query()).map(|_| i)
+                }
+            })
+            .collect();
+
+        selector.clamp_selection(filtered.len());
+
+        terminal
+            .draw(|f| {
+                let area = f.size();
+                let chunks = Layout::default()
+                    .direction(Direction::Vertical)
+                    .constraints([
+                        Constraint::Length(3),
+                        Constraint::Length(1),
+                        Constraint::Min(0),
+                    ])
+                    .split(area);
+                let input = Paragraph::new(format!("{prompt}{}", selector.query()))
+                    .block(Block::default().borders(Borders::ALL));
+                let hint = Paragraph::new(header).style(Style::default().fg(Color::DarkGray));
+                f.render_widget(input, chunks[0]);
+                f.render_widget(hint, chunks[1]);
+
+                let list_items: Vec<ListItem> = filtered
+                    .iter()
+                    .map(|&i| ListItem::new(selector.items()[i].as_str()))
+                    .collect();
+                let mut ls = ListState::default();
+                ls.select(Some(selector.selected_index()));
+                let list = List::new(list_items)
+                    .block(Block::default().borders(Borders::ALL))
+                    .highlight_symbol("> ")
+                    .highlight_style(Style::default().fg(Color::Yellow));
+                f.render_stateful_widget(list, chunks[2], &mut ls);
+            })
+            .context("Failed to draw terminal")?;
+
+        if let Event::Key(k) = event::read().context("Failed to read key event")? {
+            if let Some(result) = selector.process_key((k.code, k.modifiers), &filtered) {
+                break result;
+            }
+        }
+    };
+
+    restore_terminal(&mut terminal)?;
+    Ok(result)
+}
+
 fn run_create(branch: &str) -> Result<()> {
     if branch.trim().is_empty() {
-        tmux::show_error(
-            "Branch name cannot be empty — type a name (e.g. feat/foo) or select an existing worktree",
+        TmuxExecutor.show_error(
+            "Branch name cannot be empty — type a name (e.g. feat/foo) or select an existing workspace",
         )?;
         return Ok(());
     }
-    let repo_root = repo::find_repo_root().context("Failed to find repository root")?;
-    std::env::set_current_dir(&repo_root)?;
-    let worktree_dir = tmux::resolve_worktree_dir();
-    repo::ensure_worktrees_dir(Path::new(&repo_root), &worktree_dir)?;
-    let target_name = branch.replace('/', "-");
-    let target = Path::new(&repo_root).join(&worktree_dir).join(&target_name);
+    let repo_root = find_repo_root().context("Failed to find repository root")?;
+    let repo_root_path = Path::new(&repo_root);
+    std::env::set_current_dir(repo_root_path)?;
+    let worktree_dir = TmuxExecutor.resolve_workspace_dir();
+    let project_locator = ProjectLocator;
+    project_locator.ensure_workspace_directory(repo_root_path, &worktree_dir)?;
+    let target = WorkspaceResolver.resolve_path(repo_root_path, &worktree_dir, branch);
     if !target.is_dir() {
-        let default_branch = repo::resolve_default_branch(Path::new(&repo_root))?;
-        if let Err(e) = worktree::create(Path::new(&repo_root), &target, branch, &default_branch) {
-            tmux::show_error(&format!("Worktree creation failed:\n\n{e:#}"))?;
+        let default_branch = resolve_default_branch(repo_root_path)?;
+        if let Err(e) = create_workspace(repo_root_path, &target, branch, &default_branch) {
+            TmuxExecutor.show_error(&format!("Workspace creation failed:\n\n{e:#}"))?;
             return Ok(());
         }
     }
-    let target_abs = worktree::abspath(&target);
-    let command = tmux::shell_command();
-    tmux::select_or_create_window(branch, &target_abs, &command)?;
+    let target_abs = WorkspaceResolver.resolve_absolute(&target);
+    let command = TmuxExecutor.resolve_shell_command();
+    TmuxExecutor.select_or_create_window(branch, &target_abs, &command)?;
     Ok(())
 }
 
 fn run_cleanup() -> Result<()> {
-    let repo_root = repo::find_repo_root().context("Failed to find repository root")?;
-    std::env::set_current_dir(&repo_root)?;
-    let worktree_dir = tmux::resolve_worktree_dir();
-    let default_branch = repo::resolve_default_branch(Path::new(&repo_root))?;
-    let auto_fetch = tmux::get_opt("worktree-auto-fetch").unwrap_or_else(|| "true".to_string());
+    let repo_root = find_repo_root().context("Failed to find repository root")?;
+    let repo_root_path = Path::new(&repo_root);
+    std::env::set_current_dir(repo_root_path)?;
+    let worktree_dir = TmuxExecutor.resolve_workspace_dir();
+    let default_branch = resolve_default_branch(repo_root_path)?;
+    let auto_fetch = TmuxExecutor.get_option("worktree-auto-fetch").unwrap_or_else(|| "true".to_string());
     if auto_fetch != "false" {
-        let _ = git::run_in(
-            Path::new(&repo_root),
-            &["fetch", "origin", &default_branch, "--no-tags"],
-        );
+        let _ = GitExecutor.run_in(repo_root_path, &["fetch", "origin", &default_branch, "--no-tags"]);
     }
-    let worktrees = worktree::list_worktrees(Path::new(&repo_root), &worktree_dir)?;
+    let workspaces = list_workspaces(repo_root_path, &worktree_dir)?;
     let mut items = Vec::new();
     let mut paths = Vec::new();
-    for wt in &worktrees {
-        let branch = worktree::branch(wt).unwrap_or_else(|_| "?".to_string());
-        let merged = merge::is_merged(wt, &default_branch).unwrap_or(false);
-        let (marker, item) = if merged {
-            ("✓ merged", format!("✓ merged  | {branch}"))
+    let merge_checker = MergeChecker;
+    for ws in &workspaces {
+        let branch = workspace_branch(ws).unwrap_or_else(|_| "?".to_string());
+        let merged = merge_checker.is_merged_into_default(ws, &default_branch, |dir, remote| {
+            GitExecutor.run_in(dir, &["merge-base", "--is-ancestor", "HEAD", remote])
+                .map(|(s, _, _)| s)
+        }).unwrap_or(false);
+        let item = if merged {
+            format!("✓ merged  | {branch}")
         } else {
-            ("✗ active", format!("✗ active  | {branch}"))
+            format!("✗ active  | {branch}")
         };
-        let _ = marker;
         items.push(item);
-        paths.push(wt.clone());
+        paths.push(ws.clone());
     }
     if items.is_empty() {
-        tmux::show_error(&format!("No worktrees found in {worktree_dir}/ — press Enter to dismiss"))?;
+        TmuxExecutor.show_error(&format!("No workspaces found in {worktree_dir}/ — press Enter to dismiss"))?;
         return Ok(());
     }
-    let picked = select::fzf_pick(&items, "Remove worktree> ", "Enter to remove selected worktree", false)?;
+    let items_clone = items.clone();
+    let mut selector = Selector::new(items, false);
+    let filtered = selector.filter("");
+    let picked = run_selector(&mut selector, &filtered, "Remove workspace> ", "Enter to remove selected workspace")?;
     let idx = match picked {
-        select::Choice::Pick(i) => i,
+        SelectionResult::Selected(i) => i,
         _ => return Ok(()),
     };
-    let wt_dir = &paths[idx];
-    let branch = items[idx]
-        .split('|')
-        .nth(1)
-        .map(str::trim)
-        .unwrap_or_default()
-        .to_string();
-    if let Err(e) = worktree::remove(Path::new(&repo_root), wt_dir, &branch) {
-        tmux::show_error(&format!("Worktree removal failed:\n\n{e:#}"))?;
+    let ws_dir = &paths[idx];
+    let branch = WorkspaceResolver.extract_branch_from_display(&items_clone[idx]).unwrap_or_default();
+    if let Err(e) = remove_workspace(repo_root_path, ws_dir, &branch) {
+        TmuxExecutor.show_error(&format!("Workspace removal failed:\n\n{e:#}"))?;
         return Ok(());
     }
-    worktree::delete_branch(Path::new(&repo_root), &branch);
-    let _ = tmux::run(&["display-message", &format!("Removed worktree: {branch}")]);
+    delete_branch(repo_root_path, &branch);
+    let _ = TmuxExecutor.run(&["display-message", &format!("Removed workspace: {branch}")]);
+    Ok(())
+}
+
+fn find_repo_root() -> Result<String> {
+    let project_locator = ProjectLocator;
+    if let Some(root) = project_locator.from_env() {
+        return Ok(root);
+    }
+    if let Some(root) = project_locator.by_walking(&std::env::current_dir()?) {
+        return Ok(root);
+    }
+    if let Ok(Some(v)) = TmuxExecutor.show_environment("MAIN_PROJECT_PATH") {
+        if !v.is_empty() {
+            return Ok(v);
+        }
+    }
+    let dir = TmuxExecutor.current_pane_path()?;
+    let project_locator = ProjectLocator;
+    if let Some(root) = project_locator.by_walking(&Path::new(&dir)) {
+        return Ok(root);
+    }
+    anyhow::bail!("Not in a git repository")
+}
+
+fn resolve_default_branch(repo_root: &Path) -> Result<String> {
+    let project_locator = ProjectLocator;
+    let global = GitExecutor.run_in(repo_root, &["config", "--global", "init.defaultBranch"]).ok().and_then(|(s,o,_)| if s==0 {Some(o)} else {None}).unwrap_or_default();
+    let local = GitExecutor.run_in(repo_root, &["config", "init.defaultBranch"]).ok().and_then(|(s,o,_)| if s==0 {Some(o)} else {None}).unwrap_or_default();
+    let current = GitExecutor.run_in(repo_root, &["branch", "--show-current"]).ok().and_then(|(s,o,_)| if s==0 {Some(o)} else {None}).unwrap_or_default();
+    Ok(project_locator.determine_default_branch(&global, &local, &current))
+}
+
+fn list_workspaces(repo_root: &Path, work_dir: &str) -> Result<Vec<std::path::PathBuf>> {
+    let (status, out, _) = GitExecutor.run_in(repo_root, &["worktree", "list", "--porcelain"])?;
+    if status != 0 {
+        return Ok(Vec::new());
+    }
+    let prefix = std::fs::canonicalize(repo_root.join(work_dir))
+        .unwrap_or_else(|_| repo_root.join(work_dir));
+    let mut res = Vec::new();
+    for line in out.lines() {
+        if let Some(p) = line.strip_prefix("worktree ") {
+            let p = std::path::PathBuf::from(p.trim());
+            let matches = p.starts_with(&prefix)
+                || std::fs::canonicalize(&p)
+                    .map(|c| c.starts_with(&prefix))
+                    .unwrap_or(false);
+            if matches {
+                res.push(p);
+            }
+        }
+    }
+    Ok(res)
+}
+
+fn list_workspace_names(repo_root: &Path, work_dir: &str) -> Result<Vec<String>> {
+    let mut names: Vec<String> = list_workspaces(repo_root, work_dir)?
+        .iter()
+        .filter_map(|p| p.file_name().map(|n| n.to_string_lossy().into_owned()))
+        .collect();
+    names.sort();
+    Ok(names)
+}
+
+fn create_workspace(repo_root: &Path, target: &Path, branch: &str, base: &str) -> Result<()> {
+    let _ = GitExecutor.silent_in(repo_root, &["fetch", "origin", "--quiet"]);
+    let mut base = base.to_string();
+    let remote_base = format!("refs/remotes/origin/{base}");
+    let exists = GitExecutor.run_in(repo_root, &["show-ref", "--verify", "--quiet", &remote_base])
+        .map(|(s, _, _)| s == 0)
+        .unwrap_or(false);
+    if exists {
+        base = format!("origin/{base}");
+    }
+    let (status, stdout, stderr) = GitExecutor.run_in(
+        repo_root,
+        &["worktree", "add", target.to_str().unwrap(), "-b", branch, &base],
+    )?;
+    if status != 0 {
+        anyhow::bail!("{}", if stdout.is_empty() { stderr } else { stdout });
+    }
+    Ok(())
+}
+
+fn remove_workspace(repo_root: &Path, ws_dir: &Path, branch: &str) -> Result<()> {
+    if !branch.is_empty() {
+        TmuxExecutor.kill_window(branch)?;
+    }
+    let (status, stdout, stderr) = GitExecutor.run_in(
+        repo_root,
+        &["worktree", "remove", "--force", ws_dir.to_str().unwrap()],
+    )?;
+    if status != 0 {
+        anyhow::bail!("{}", if stdout.is_empty() { stderr } else { stdout });
+    }
+    Ok(())
+}
+
+fn workspace_branch(ws_dir: &Path) -> Result<String> {
+    let (status, out, _) = GitExecutor.run_in(ws_dir, &["rev-parse", "--abbrev-ref", "HEAD"])?;
+    if status != 0 {
+        return Ok("?".to_string());
+    }
+    Ok(out)
+}
+
+fn delete_branch(repo_root: &Path, branch: &str) {
+    let _ = GitExecutor.silent_in(repo_root, &["branch", "-D", branch]);
+}
+
+fn setup_terminal() -> Result<ratatui::Terminal<ratatui::backend::CrosstermBackend<std::io::Stdout>>> {
+    use crossterm::terminal::{enable_raw_mode, EnterAlternateScreen};
+    use crossterm::execute;
+    use ratatui::Terminal;
+    use ratatui::backend::CrosstermBackend;
+    use std::io;
+
+    enable_raw_mode().context("Failed to enable raw mode")?;
+    let mut stdout = io::stdout();
+    execute!(stdout, EnterAlternateScreen).context("Failed to enter alternate screen")?;
+    let backend = CrosstermBackend::new(stdout);
+    let mut terminal = Terminal::new(backend).context("Failed to create terminal")?;
+    terminal.clear().context("Failed to clear terminal")?;
+    Ok(terminal)
+}
+
+fn restore_terminal(terminal: &mut ratatui::Terminal<ratatui::backend::CrosstermBackend<std::io::Stdout>>) -> Result<()> {
+    use crossterm::terminal::{disable_raw_mode, LeaveAlternateScreen};
+    use crossterm::execute;
+    execute!(terminal.backend_mut(), LeaveAlternateScreen)
+        .context("Failed to leave alternate screen")?;
+    disable_raw_mode().context("Failed to disable raw mode")?;
     Ok(())
 }
 
