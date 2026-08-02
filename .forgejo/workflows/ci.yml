@@ -15,9 +15,52 @@ jobs:
   test:
     runs-on: codeberg-tiny
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: ./.forgejo/actions/install-dependencies
 
-      - name: Run tests
-        run: echo "wip"
+      - uses: ./.forgejo/actions/setup-rust
+
+      - uses: ./.forgejo/actions/run-tests
+
+  lint:
+    runs-on: codeberg-tiny
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.forgejo/actions/install-dependencies
+
+      - uses: ./.forgejo/actions/setup-rust
+
+      - name: Check formatting
+        run: just fmt-check
+
+      - name: Lint
+        run: just lint
+
+  validate:
+    runs-on: codeberg-tiny
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Install shellcheck
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y shellcheck
+
+      - name: Install actionlint
+        run: |
+          mkdir -p ~/.local/bin
+          curl -sL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash | bash
+          mv actionlint ~/.local/bin/
+
+      - name: Lint shell scripts
+        run: |
+          for f in scripts/*.sh scripts/lib/*.sh; do
+            [ -f "$f" ] && shellcheck --external-sources -S info "$f"
+          done
+
+      - name: Lint Forgejo Actions workflows
+        run: |
+          PATH="$HOME/.local/bin:$PATH"
+          actionlint -config-file .actionlint.yaml .forgejo/workflows/*.yml
