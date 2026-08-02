@@ -228,9 +228,10 @@ fn run_cleanup() -> Result<()> {
     let merge_checker = MergeChecker;
     for ws in &workspaces {
         let branch = workspace_branch(ws).unwrap_or_else(|_| "?".to_string());
-        let merged = merge_checker.is_merged_into_default(ws, &default_branch, |dir, remote| {
+        let merged = merge_checker.is_merged(ws, &default_branch, |dir, remote| {
             GitExecutor.run_in(dir, &["merge-base", "--is-ancestor", "HEAD", remote])
-                .map(|(s, _, _)| s)
+                .map(|(s, _, _)| s == 0)
+                .map_err(|e| format!("{e:#}"))
         }).unwrap_or(false);
         let item = if merged {
             format!("✓ merged  | {branch}")
