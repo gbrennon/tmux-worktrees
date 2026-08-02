@@ -1,0 +1,16 @@
+name: Check Commit Messages
+
+on: [push, pull_request]
+
+jobs:
+  check-commits:
+    runs-on: codeberg-tiny
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Check commit messages
+        env:
+          CI_EVENT_NAME: ${{ github.event_name }}
+          CI_BASE_REF: ${{ github.event.pull_request.base_ref }}
+          CI_HEAD_REF: ${{ github.event.pull_request.head_ref }}
+        run: bash scripts/check_commit_messages.sh
