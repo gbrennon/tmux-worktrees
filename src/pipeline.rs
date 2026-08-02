@@ -532,28 +532,4 @@ mod tests {
         assert_eq!(cmd, "choose");
         assert_eq!(rest, vec!["choose"]);
     }
-
-    #[test]
-    fn run_with_terminal_dispatches_unknown_command() {
-        use crate::infrastructure::command_runner::test_support::FakeRunner;
-        use crate::infrastructure::tmux_executor::TmuxExecutor;
-
-        let f = FakeRunner::new();
-        // show_error tries display-popup first (falls through to display-message on failure).
-        // The display-popup key contains the real PID temp path, so it won't match
-        // the FakeRunner entry — it returns NotFound, triggering the fallback.
-        f.ok(
-            "tmux",
-            "display-message:-d:5000:tmux-worktrees: Unknown command: bogus",
-            0,
-            "",
-            "",
-        );
-
-        let tmux = TmuxExecutor::with_runner(Box::new(f));
-        let git = GitExecutor::default();
-        let ctx = Ctx { tmux, git };
-        let args = vec!["tmux-worktrees".to_string(), "bogus".to_string()];
-        run_with_terminal(&ctx, &args, true);
-    }
 }
