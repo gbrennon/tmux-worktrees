@@ -3,7 +3,7 @@ use std::path::Path;
 pub struct ProjectLocator;
 
 impl ProjectLocator {
-    pub fn from_env(&self) -> Option<String> {
+    pub fn from_env() -> Option<String> {
         find_project_root_from_env()
     }
 
@@ -15,7 +15,11 @@ impl ProjectLocator {
         determine_default_branch(global, local, current)
     }
 
-    pub fn ensure_workspace_directory(&self, project_root: &Path, workspace_dir: &str) -> anyhow::Result<()> {
+    pub fn ensure_workspace_directory(
+        &self,
+        project_root: &Path,
+        workspace_dir: &str,
+    ) -> anyhow::Result<()> {
         ensure_workspace_directory_exists(project_root, workspace_dir)
     }
 }
@@ -62,7 +66,10 @@ fn determine_default_branch(global: &str, local: &str, current: &str) -> String 
     "main".to_string()
 }
 
-fn ensure_workspace_directory_exists(project_root: &Path, workspace_dir: &str) -> anyhow::Result<()> {
+fn ensure_workspace_directory_exists(
+    project_root: &Path,
+    workspace_dir: &str,
+) -> anyhow::Result<()> {
     let dir = project_root.join(workspace_dir);
     if !dir.is_dir() {
         std::fs::create_dir(&dir)?;
@@ -89,31 +96,28 @@ mod tests {
 
     #[test]
     fn project_locator_from_env_returns_some_when_valid() {
-        let locator = ProjectLocator;
         let dir = tempdir().unwrap();
         let project = dir.path().join("project");
         fs::create_dir_all(&project).unwrap();
         fs::create_dir(project.join(".git")).unwrap();
         std::env::set_var("TMUX_WORKTREES_ROOT", project.to_str().unwrap());
-        let result = locator.from_env();
+        let result = ProjectLocator::from_env();
         assert_eq!(result, Some(project.to_string_lossy().into_owned()));
         std::env::remove_var("TMUX_WORKTREES_ROOT");
     }
 
     #[test]
     fn project_locator_from_env_returns_none_when_not_set() {
-        let locator = ProjectLocator;
         std::env::remove_var("TMUX_WORKTREES_ROOT");
-        let result = locator.from_env();
+        let result = ProjectLocator::from_env();
         assert_eq!(result, None);
     }
 
     #[test]
     fn project_locator_from_env_returns_none_when_not_git() {
-        let locator = ProjectLocator;
         let dir = tempdir().unwrap();
         std::env::set_var("TMUX_WORKTREES_ROOT", dir.path().to_str().unwrap());
-        let result = locator.from_env();
+        let result = ProjectLocator::from_env();
         assert_eq!(result, None);
         std::env::remove_var("TMUX_WORKTREES_ROOT");
     }
@@ -143,7 +147,10 @@ mod tests {
         let locator = ProjectLocator;
         assert_eq!(locator.determine_default_branch("global", "", ""), "global");
         assert_eq!(locator.determine_default_branch("", "local", ""), "local");
-        assert_eq!(locator.determine_default_branch("", "", "current"), "current");
+        assert_eq!(
+            locator.determine_default_branch("", "", "current"),
+            "current"
+        );
         assert_eq!(locator.determine_default_branch("", "", ""), "main");
     }
 
@@ -157,5 +164,67 @@ mod tests {
         let result = locator.ensure_workspace_directory(&project, workspace_dir);
         assert!(result.is_ok());
         assert!(project.join(workspace_dir).is_dir());
+    }
+    #[test]
+    fn project_locator_ensure_workspace_directory_already_exists() {
+        let locator = ProjectLocator;
+        let dir = tempdir().unwrap();
+        let project = dir.path().join("project");
+        fs::create_dir_all(project.join(".git").join("info")).unwrap();
+        let workspace_dir = ".workspaces";
+        fs::create_dir(project.join(workspace_dir)).unwrap();
+        let result = locator.ensure_workspace_directory(&project, workspace_dir);
+        assert!(result.is_ok());
+        assert!(project.join(workspace_dir).is_dir());
+    }
+
+    #[test]
+    fn project_locator_ensure_workspace_directory_updates_exclude_when_needed() {
+        let locator = ProjectLocator;
+        let dir = tempdir().unwrap();
+        let project = dir.path().join("project");
+        let info_dir = project.join(".git").join("info");
+        fs::create_dir_all(&info_dir).unwrap();
+        // Write exclude without the workspace dir line
+        fs::write(info_dir.join("exclude"), "# existing exclude\n").unwrap();
+        let workspace_dir = ".workspaces";
+        let result = locator.ensure_workspace_directory(&project, workspace_dir);
+        assert!(result.is_ok());
+        assert!(project.join(workspace_dir).is_dir());
+        let exclude_content = fs::read_to_string(info_dir.join("exclude")).unwrap();
+        assert!(exclude_content.contains(".workspaces/"));
+    }
+
+    #[test]
+    fn project_locator_ensure_workspace_directory_no_update_when_already_present() {
+        let locator = ProjectLocator;
+        let dir = tempdir().unwrap();
+        let project = dir.path().join("project");
+        let info_dir = project.join(".git").join("info");
+        fs::create_dir_all(&info_dir).unwrap();
+        // Write exclude WITH the workspace dir line already present
+        let original = "# existing exclude\n.workspaces/\n";
+        fs::write(info_dir.join("exclude"), original).unwrap();
+        let workspace_dir = ".workspaces";
+        let result = locator.ensure_workspace_directory(&project, workspace_dir);
+        assert!(result.is_ok());
+        assert!(project.join(workspace_dir).is_dir());
+        let exclude_content = fs::read_to_string(info_dir.join("exclude")).unwrap();
+        // Content should be unchanged (no duplicate line appended)
+        assert_eq!(exclude_content, original);
+    }
+
+    #[test]
+    fn project_locator_ensure_workspace_directory_errors_when_create_dir_fails() {
+        let locator = ProjectLocator;
+        let dir = tempdir().unwrap();
+        let project = dir.path().join("project");
+        let info_dir = project.join(".git").join("info");
+        fs::create_dir_all(&info_dir).unwrap();
+        // Create a FILE at the workspace dir path, so create_dir fails
+        let workspace_dir = ".workspaces";
+        fs::write(project.join(workspace_dir), "blocker").unwrap();
+        let result = locator.ensure_workspace_directory(&project, workspace_dir);
+        assert!(result.is_err());
     }
 }
