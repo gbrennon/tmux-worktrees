@@ -10,27 +10,27 @@ To clone this repository with submodules, use:
 ## Prerequisites
 
 Ensure you have the following tools installed:
-- `make`: Used to run tests and build the project.
+- `just`: Used to run tests and build the project.
 - `fzf`: For interactive worktree selection.
-- `bats`: For running BATS tests.
 
 ### Installation Instructions
 
 **Ubuntu**:
 ```bash
- sudo apt-get install make fzf bats
+cargo install just
+sudo apt-get install fzf
 ```
 
 **macOS (Homebrew)**:
 ```bash
- brew install make fzf bats
+brew install just fzf
 ```
 
 ## Running Tests
 
-To run all tests, use the `make` command:
+To run all tests, use the `just` command:
 ```bash
- make test
+just test
 ```
 
-This will execute the BATS test suite located in the `test/bats/` directory.
+This will execute the Rust test suite located in the `tests/` directory.
