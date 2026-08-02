@@ -7,7 +7,7 @@ impl MergeChecker {
         &self,
         workspace_dir: &Path,
         original_branch: &str,
-        check_merged: impl FnOnce(&Path, &str) -> Result<bool, String>
+        check_merged: impl FnOnce(&Path, &str) -> Result<bool, String>,
     ) -> Result<bool, String> {
         let remote_ref = format!("origin/{original_branch}");
         check_merged(workspace_dir, &remote_ref)
