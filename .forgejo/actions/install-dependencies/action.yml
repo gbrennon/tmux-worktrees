@@ -7,3 +7,29 @@
     steps:
       - shell: bash
         run: apt-get update && apt-get install -y bash git fzf tmux
+
+      - name: Install just
+        shell: bash
+        run: |
+          if command -v just >/dev/null 2>&1; then
+            echo "just already installed: $(just --version)"
+            exit 0
+          fi
+
+          arch=$(uname -m)
+          case "$arch" in
+            x86_64) target="x86_64-unknown-linux-musl" ;;
+            aarch64) target="aarch64-unknown-linux-musl" ;;
+            *)
+              echo "unsupported architecture: $arch" >&2
+              exit 1
+              ;;
+          esac
+
+          curl -fsSL --proto '=https' --tlsv1.2 \
+            -o /tmp/just.tar.gz \
+            "https://github.com/casey/just/releases/download/1.38.0/just-1.38.0-${target}.tar.gz"
+          tar -xzf /tmp/just.tar.gz -C /tmp just
+          install -m 0755 /tmp/just /usr/local/bin/just
+          rm -f /tmp/just.tar.gz /tmp/just
+          just --version
