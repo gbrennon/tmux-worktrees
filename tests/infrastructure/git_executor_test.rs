@@ -1,8 +1,8 @@
 // Fakes - one per scenario, extremely specific
 
 use anyhow::Result;
-use std::path::Path;
 use std::cell::RefCell;
+use std::path::Path;
 use std::rc::Rc;
 
 struct FakeGitExecutorForVersion;
@@ -38,7 +38,9 @@ impl FakeGitExecutorForBranch {
         match args {
             ["branch"] => Ok((0, "main\nfeature".to_string(), String::new())),
             ["branch", "test-branch"] => Ok((0, String::new(), String::new())),
-            ["branch", "--list", "test-branch"] => Ok((0, "test-branch".to_string(), String::new())),
+            ["branch", "--list", "test-branch"] => {
+                Ok((0, "test-branch".to_string(), String::new()))
+            }
             ["branch", "--list", _] => Ok((0, String::new(), String::new())),
             ["branch", "-D", _] => Ok((0, String::new(), String::new())),
             _ => Ok((1, String::new(), "unexpected".to_string())),
@@ -56,7 +58,7 @@ impl FakeGitExecutorForMergeBase {
             merged: Rc::new(RefCell::new(false)),
         }
     }
-    
+
     fn run_in(&self, _cwd: &Path, args: &[&str]) -> Result<(i32, String, String)> {
         match args {
             ["merge-base", "--is-ancestor", "feature", "main"] => {
@@ -77,13 +79,23 @@ struct FakeGitExecutorForWorktree;
 impl FakeGitExecutorForWorktree {
     fn run_in(&self, _cwd: &Path, args: &[&str]) -> Result<(i32, String, String)> {
         match args {
-            ["worktree", "list", "--porcelain"] => Ok((0, "worktree /tmp/wt\nbranch test\n".to_string(), String::new())),
-            ["worktree", "add", _, "-b", "wt-branch", "main"] => Ok((0, String::new(), String::new())),
+            ["worktree", "list", "--porcelain"] => Ok((
+                0,
+                "worktree /tmp/wt\nbranch test\n".to_string(),
+                String::new(),
+            )),
+            ["worktree", "add", _, "-b", "wt-branch", "main"] => {
+                Ok((0, String::new(), String::new()))
+            }
             ["worktree", "remove", "--force", _] => Ok((0, String::new(), String::new())),
             ["rev-parse", "--abbrev-ref", "HEAD"] => Ok((0, "main".to_string(), String::new())),
             ["fetch", "origin", "--quiet"] => Ok((0, String::new(), String::new())),
-            ["show-ref", "--verify", "--quiet", "refs/heads/main"] => Ok((0, String::new(), String::new())),
-            ["show-ref", "--verify", "--quiet", "refs/heads/nonexistent"] => Ok((1, String::new(), String::new())),
+            ["show-ref", "--verify", "--quiet", "refs/heads/main"] => {
+                Ok((0, String::new(), String::new()))
+            }
+            ["show-ref", "--verify", "--quiet", "refs/heads/nonexistent"] => {
+                Ok((1, String::new(), String::new()))
+            }
             _ => Ok((1, String::new(), "unexpected".to_string())),
         }
     }
@@ -97,7 +109,9 @@ mod tests {
     #[test]
     fn git_executor_runs_git_command_in_repo() {
         let executor = FakeGitExecutorForVersion;
-        let (status, stdout, _) = executor.run_in(std::path::Path::new("."), &["--version"]).unwrap();
+        let (status, stdout, _) = executor
+            .run_in(std::path::Path::new("."), &["--version"])
+            .unwrap();
         assert_eq!(status, 0);
         assert!(stdout.starts_with("git version"));
     }
@@ -105,7 +119,9 @@ mod tests {
     #[test]
     fn git_executor_runs_status_command() {
         let executor = FakeGitExecutorForInit;
-        let (status, stdout, _) = executor.run_in(std::path::Path::new("."), &["status", "--porcelain"]).unwrap();
+        let (status, stdout, _) = executor
+            .run_in(std::path::Path::new("."), &["status", "--porcelain"])
+            .unwrap();
         assert_eq!(status, 0);
         assert!(stdout.is_empty());
     }
@@ -120,11 +136,18 @@ mod tests {
     #[test]
     fn git_executor_can_create_branch() {
         let executor = FakeGitExecutorForBranch;
-        
-        let (status, _, _) = executor.run_in(std::path::Path::new("."), &["branch", "test-branch"]).unwrap();
+
+        let (status, _, _) = executor
+            .run_in(std::path::Path::new("."), &["branch", "test-branch"])
+            .unwrap();
         assert_eq!(status, 0);
-        
-        let (status, stdout, _) = executor.run_in(std::path::Path::new("."), &["branch", "--list", "test-branch"]).unwrap();
+
+        let (status, stdout, _) = executor
+            .run_in(
+                std::path::Path::new("."),
+                &["branch", "--list", "test-branch"],
+            )
+            .unwrap();
         assert_eq!(status, 0);
         assert!(stdout.contains("test-branch"));
     }
@@ -132,22 +155,39 @@ mod tests {
     #[test]
     fn git_executor_can_check_merge_base() {
         let executor = FakeGitExecutorForMergeBase::new();
-        
-        let (status, _, _) = executor.run_in(std::path::Path::new("."), &["merge-base", "--is-ancestor", "feature", "main"]).unwrap();
+
+        let (status, _, _) = executor
+            .run_in(
+                std::path::Path::new("."),
+                &["merge-base", "--is-ancestor", "feature", "main"],
+            )
+            .unwrap();
         assert_ne!(status, 0);
-        
-        let (status, _, _) = executor.run_in(std::path::Path::new("."), &["merge", "feature"]).unwrap();
+
+        let (status, _, _) = executor
+            .run_in(std::path::Path::new("."), &["merge", "feature"])
+            .unwrap();
         assert_eq!(status, 0);
-        
-        let (status, _, _) = executor.run_in(std::path::Path::new("."), &["merge-base", "--is-ancestor", "feature", "main"]).unwrap();
+
+        let (status, _, _) = executor
+            .run_in(
+                std::path::Path::new("."),
+                &["merge-base", "--is-ancestor", "feature", "main"],
+            )
+            .unwrap();
         assert_eq!(status, 0);
     }
 
     #[test]
     fn git_executor_can_list_worktrees() {
         let executor = FakeGitExecutorForWorktree;
-        
-        let (status, stdout, _) = executor.run_in(std::path::Path::new("."), &["worktree", "list", "--porcelain"]).unwrap();
+
+        let (status, stdout, _) = executor
+            .run_in(
+                std::path::Path::new("."),
+                &["worktree", "list", "--porcelain"],
+            )
+            .unwrap();
         assert_eq!(status, 0);
         assert!(stdout.contains("worktree "));
     }
@@ -155,24 +195,39 @@ mod tests {
     #[test]
     fn git_executor_can_add_worktree() {
         let executor = FakeGitExecutorForWorktree;
-        
-        let (status, _, _) = executor.run_in(std::path::Path::new("."), &["worktree", "add", "/tmp/wt", "-b", "wt-branch", "main"]).unwrap();
+
+        let (status, _, _) = executor
+            .run_in(
+                std::path::Path::new("."),
+                &["worktree", "add", "/tmp/wt", "-b", "wt-branch", "main"],
+            )
+            .unwrap();
         assert_eq!(status, 0);
     }
 
     #[test]
     fn git_executor_can_remove_worktree() {
         let executor = FakeGitExecutorForWorktree;
-        
-        let (status, _, _) = executor.run_in(std::path::Path::new("."), &["worktree", "remove", "--force", "/tmp/wt"]).unwrap();
+
+        let (status, _, _) = executor
+            .run_in(
+                std::path::Path::new("."),
+                &["worktree", "remove", "--force", "/tmp/wt"],
+            )
+            .unwrap();
         assert_eq!(status, 0);
     }
 
     #[test]
     fn git_executor_can_get_current_branch() {
         let executor = FakeGitExecutorForWorktree;
-        
-        let (status, stdout, _) = executor.run_in(std::path::Path::new("."), &["rev-parse", "--abbrev-ref", "HEAD"]).unwrap();
+
+        let (status, stdout, _) = executor
+            .run_in(
+                std::path::Path::new("."),
+                &["rev-parse", "--abbrev-ref", "HEAD"],
+            )
+            .unwrap();
         assert_eq!(status, 0);
         assert_eq!(stdout.trim(), "main");
     }
@@ -180,7 +235,7 @@ mod tests {
     #[test]
     fn git_executor_can_fetch() {
         let executor = FakeGitExecutorForWorktree;
-        
+
         let result = executor.run_in(std::path::Path::new("."), &["fetch", "origin", "--quiet"]);
         assert!(result.is_ok());
     }
@@ -188,11 +243,21 @@ mod tests {
     #[test]
     fn git_executor_can_check_ref_exists() {
         let executor = FakeGitExecutorForWorktree;
-        
-        let (status, _, _) = executor.run_in(std::path::Path::new("."), &["show-ref", "--verify", "--quiet", "refs/heads/main"]).unwrap();
+
+        let (status, _, _) = executor
+            .run_in(
+                std::path::Path::new("."),
+                &["show-ref", "--verify", "--quiet", "refs/heads/main"],
+            )
+            .unwrap();
         assert_eq!(status, 0);
-        
-        let (status, _, _) = executor.run_in(std::path::Path::new("."), &["show-ref", "--verify", "--quiet", "refs/heads/nonexistent"]).unwrap();
+
+        let (status, _, _) = executor
+            .run_in(
+                std::path::Path::new("."),
+                &["show-ref", "--verify", "--quiet", "refs/heads/nonexistent"],
+            )
+            .unwrap();
         assert_ne!(status, 0);
     }
 }
