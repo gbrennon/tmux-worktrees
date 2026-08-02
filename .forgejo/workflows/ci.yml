@@ -19,7 +19,19 @@ jobs:
 
       - uses: ./.forgejo/actions/install-dependencies
 
-      - uses: ./.forgejo/actions/setup-rust
+      - name: Install Rust toolchain
+        uses: https://codeberg.org/wackbyte/rust-toolchain@trunk
+        with:
+          toolchain: stable
+
+      - name: Cache cargo registry and git
+        uses: https://data.forgejo.org/actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-registry-
 
       - uses: ./.forgejo/actions/run-tests
 
@@ -30,7 +42,19 @@ jobs:
 
       - uses: ./.forgejo/actions/install-dependencies
 
-      - uses: ./.forgejo/actions/setup-rust
+      - name: Install Rust toolchain
+        uses: https://codeberg.org/wackbyte/rust-toolchain@trunk
+        with:
+          toolchain: stable
+
+      - name: Cache cargo registry and git
+        uses: https://data.forgejo.org/actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+          restore-keys: ${{ runner.os }}-cargo-registry-
 
       - name: Check formatting
         run: just fmt-check
