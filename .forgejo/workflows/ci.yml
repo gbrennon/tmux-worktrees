@@ -8,9 +8,6 @@ on:
     branches:
       - main
 
-permissions:
-  contents: read
-
 jobs:
   test:
     runs-on: codeberg-tiny
@@ -19,13 +16,8 @@ jobs:
 
       - uses: ./.forgejo/actions/install-dependencies
 
-      - name: Install Rust toolchain
-        uses: https://codeberg.org/wackbyte/rust-toolchain@trunk
-        with:
-          toolchain: stable
-
       - name: Cache cargo registry and git
-        uses: https://data.forgejo.org/actions/cache@v4
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
@@ -42,13 +34,8 @@ jobs:
 
       - uses: ./.forgejo/actions/install-dependencies
 
-      - name: Install Rust toolchain
-        uses: https://codeberg.org/wackbyte/rust-toolchain@trunk
-        with:
-          toolchain: stable
-
       - name: Cache cargo registry and git
-        uses: https://data.forgejo.org/actions/cache@v4
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
