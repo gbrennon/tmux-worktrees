@@ -15,6 +15,10 @@ path = "tests/infrastructure/git_executor_test.rs"
 name = "tmux_executor_test"
 path = "tests/infrastructure/tmux_executor_test.rs"
 
+[[test]]
+name = "e2e_worktree_lifecycle"
+path = "tests/e2e/worktree_lifecycle.rs"
+
 [dependencies]
 ratatui = "0.25"
 crossterm = "0.27"
