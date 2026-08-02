@@ -1,6 +1,8 @@
 use anyhow::{Context, Result};
 use std::path::Path;
 
+use crate::core::ports::GitPort;
+
 use super::command_runner::{CommandRunner, SystemCommandRunner};
 
 /// Thin adapter around `git` commands — every call is forwarded through the
@@ -38,6 +40,16 @@ impl GitExecutor {
     pub fn silent_in(&self, cwd: &Path, args: &[&str]) -> Result<()> {
         let _ = self.run_in(cwd, args);
         Ok(())
+    }
+}
+
+impl GitPort for GitExecutor {
+    fn run_in(&self, dir: &Path, args: &[&str]) -> Result<(i32, String, String)> {
+        self.run_in(dir, args)
+    }
+
+    fn silent_in(&self, dir: &Path, args: &[&str]) -> Result<()> {
+        self.silent_in(dir, args)
     }
 }
 
