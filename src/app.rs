@@ -37,10 +37,10 @@ pub fn parse_args(args: &[String]) -> (String, Vec<String>) {
     while i < args.len() {
         let a = &args[i];
         if let Some(root) = a.strip_prefix("--root=") {
-            std::env::set_var("TMUX_WORKTREES_ROOT", root);
+            unsafe { std::env::set_var("TMUX_WORKTREES_ROOT", root) };
         } else if a == "--root" {
             if let Some(root) = args.get(i + 1) {
-                std::env::set_var("TMUX_WORKTREES_ROOT", root);
+                unsafe { std::env::set_var("TMUX_WORKTREES_ROOT", root) };
                 i += 1;
             }
         } else {
