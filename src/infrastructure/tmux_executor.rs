@@ -1,5 +1,7 @@
 use anyhow::{Context, Result};
 
+use crate::core::ports::TmuxPort;
+
 use super::command_runner::{CommandRunner, SystemCommandRunner};
 
 /// Thin adapter around `tmux` commands — every call is forwarded through the
@@ -175,6 +177,48 @@ impl TmuxExecutor {
                 .map(|s| s.trim().to_string())),
             _ => Ok(None),
         }
+    }
+}
+
+impl TmuxPort for TmuxExecutor {
+    fn show_error(&self, msg: &str) -> Result<()> {
+        self.show_error(msg)
+    }
+
+    fn display_popup(&self, width: &str, height: &str, dir: &str, cmd: &str) -> Result<()> {
+        self.display_popup(width, height, dir, cmd)
+    }
+
+    fn resolve_workspace_dir(&self) -> String {
+        self.resolve_workspace_dir()
+    }
+
+    fn resolve_shell_command(&self) -> String {
+        self.resolve_shell_command()
+    }
+
+    fn select_or_create_window(&self, name: &str, path: &str, command: &str) -> Result<()> {
+        self.select_or_create_window(name, path, command)
+    }
+
+    fn get_option(&self, key: &str) -> Option<String> {
+        self.get_option(key)
+    }
+
+    fn show_environment(&self, var: &str) -> Result<Option<String>> {
+        self.show_environment(var)
+    }
+
+    fn current_pane_path(&self) -> Result<String> {
+        self.current_pane_path()
+    }
+
+    fn run(&self, args: &[&str]) -> Result<(i32, String, String)> {
+        self.run(args)
+    }
+
+    fn kill_window(&self, name: &str) -> Result<()> {
+        self.kill_window(name)
     }
 }
 
