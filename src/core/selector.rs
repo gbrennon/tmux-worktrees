@@ -23,8 +23,18 @@ impl Selector {
         self.selected_index = clamp_selection_index(self.selected_index, filtered_len);
     }
 
-    pub fn process_key(&mut self, key: (KeyCode, KeyModifiers), filtered: &[usize]) -> Option<SelectionResult> {
-        process_key_input(key, &mut self.query, &mut self.selected_index, filtered, self.allow_custom)
+    pub fn process_key(
+        &mut self,
+        key: (KeyCode, KeyModifiers),
+        filtered: &[usize],
+    ) -> Option<SelectionResult> {
+        process_key_input(
+            key,
+            &mut self.query,
+            &mut self.selected_index,
+            filtered,
+            self.allow_custom,
+        )
     }
 
     pub fn query(&self) -> &str {
@@ -40,9 +50,9 @@ impl Selector {
     }
 }
 
+use crossterm::event::{KeyCode, KeyModifiers};
 use fuzzy_matcher::clangd::ClangdMatcher;
 use fuzzy_matcher::FuzzyMatcher;
-use crossterm::event::{KeyCode, KeyModifiers};
 
 pub fn filter_items_by_query(items: &[String], query: &str) -> Vec<usize> {
     if query.is_empty() {
@@ -74,7 +84,9 @@ pub fn process_key_input(
     allow_custom: bool,
 ) -> Option<SelectionResult> {
     match key {
-        (KeyCode::Char('c'), mods) if mods.contains(KeyModifiers::CONTROL) => Some(SelectionResult::Cancelled),
+        (KeyCode::Char('c'), mods) if mods.contains(KeyModifiers::CONTROL) => {
+            Some(SelectionResult::Cancelled)
+        }
         (KeyCode::Char('u'), mods) if mods.contains(KeyModifiers::CONTROL) => {
             query.clear();
             *selected_index = 0;
@@ -91,11 +103,13 @@ pub fn process_key_input(
             None
         }
         (KeyCode::Down, _) => {
-            *selected_index = clamp_selection_index(selected_index.saturating_add(1), filtered_indices.len());
+            *selected_index =
+                clamp_selection_index(selected_index.saturating_add(1), filtered_indices.len());
             None
         }
         (KeyCode::Up, _) => {
-            *selected_index = clamp_selection_index(selected_index.saturating_sub(1), filtered_indices.len());
+            *selected_index =
+                clamp_selection_index(selected_index.saturating_sub(1), filtered_indices.len());
             None
         }
         (KeyCode::Esc, _) => Some(SelectionResult::Cancelled),
@@ -331,7 +345,10 @@ mod tests {
             &filtered,
             true,
         );
-        assert_eq!(result, Some(SelectionResult::Custom("new-branch".to_string())));
+        assert_eq!(
+            result,
+            Some(SelectionResult::Custom("new-branch".to_string()))
+        );
     }
 
     #[test]
@@ -360,6 +377,85 @@ mod tests {
             &mut selected,
             &filtered,
             true,
+        );
+        assert_eq!(result, None);
+    }
+
+    // Selector method tests
+
+    #[test]
+    fn selector_filter_delegates_to_filter_items_by_query() {
+        let items = vec!["foo".to_string(), "bar".to_string(), "baz".to_string()];
+        let selector = Selector::new(items.clone(), true);
+        let result = selector.filter("ba");
+        assert_eq!(result, vec![1, 2]);
+    }
+
+    #[test]
+    fn selector_clamp_selection_delegates_to_clamp_selection_index() {
+        let items = vec!["a".to_string(), "b".to_string(), "c".to_string()];
+        let mut selector = Selector::new(items, true);
+        // selected_index starts at 0; clamp_selection(3) delegates to
+        // clamp_selection_index(0, 3) which returns 0 (within bounds).
+        selector.clamp_selection(3);
+        assert_eq!(selector.selected_index(), 0);
+        // With filtered_len=0, selection stays at 0.
+        selector.clamp_selection(0);
+        assert_eq!(selector.selected_index(), 0);
+    }
+
+    #[test]
+    fn selector_process_key_delegates() {
+        let items = vec!["a".to_string(), "b".to_string()];
+        let mut selector = Selector::new(items, true);
+        let result = selector.process_key((KeyCode::Char('c'), KeyModifiers::CONTROL), &[0, 1]);
+        assert_eq!(result, Some(SelectionResult::Cancelled));
+        assert_eq!(selector.query(), "");
+    }
+
+    // process_key_input edge cases
+
+    #[test]
+    fn process_key_input_unknown_key_returns_none() {
+        let mut query = String::new();
+        let mut selected = 0;
+        let filtered = vec![0, 1];
+        let result = process_key_input(
+            (KeyCode::F(1), KeyModifiers::NONE),
+            &mut query,
+            &mut selected,
+            &filtered,
+            true,
+        );
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn process_key_input_enter_with_oob_index_returns_none() {
+        let mut query = String::new();
+        let mut selected = 5; // out of bounds for filtered_indices (len 3)
+        let filtered = vec![0, 1, 2];
+        let result = process_key_input(
+            (KeyCode::Enter, KeyModifiers::NONE),
+            &mut query,
+            &mut selected,
+            &filtered,
+            false,
+        );
+        assert_eq!(result, None);
+    }
+
+    #[test]
+    fn process_key_input_enter_empty_query_no_custom_when_not_allowed() {
+        let mut query = String::new();
+        let mut selected = 0;
+        let filtered = vec![];
+        let result = process_key_input(
+            (KeyCode::Enter, KeyModifiers::NONE),
+            &mut query,
+            &mut selected,
+            &filtered,
+            false,
         );
         assert_eq!(result, None);
     }
