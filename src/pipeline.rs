@@ -26,6 +26,33 @@ impl Default for Ctx {
     }
 }
 
+/// Entry point for the binary. Detects whether stdin is a terminal
+/// and routes interactive commands through a tmux popup when needed.
+pub fn run(ctx: &Ctx, args: &[String]) {
+    use std::io::IsTerminal;
+    let is_term = std::io::stdin().is_terminal();
+    run_with_terminal(ctx, args, is_term);
+}
+
+/// Core routing logic, separated so tests can control the terminal flag.
+pub fn run_with_terminal(ctx: &Ctx, args: &[String], is_terminal: bool) {
+    let cmd = args.get(1).map(String::as_str).unwrap_or("choose");
+    let interactive = matches!(cmd, "choose" | "cleanup");
+
+    let result = if interactive && !is_terminal {
+        match spawn_in_popup(ctx, args) {
+            Ok(()) => Ok(()),
+            Err(_) => dispatch(ctx, args),
+        }
+    } else {
+        dispatch(ctx, args)
+    };
+
+    if let Err(e) = result {
+        let _ = ctx.tmux.show_error(&format!("{e:#}"));
+    }
+}
+
 pub fn dispatch(ctx: &Ctx, args: &[String]) -> Result<()> {
     let (cmd, rest) = parse_args(args);
     match cmd.as_str() {
