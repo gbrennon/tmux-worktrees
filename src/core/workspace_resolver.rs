@@ -8,7 +8,9 @@ impl WorkspaceResolver {
     }
 
     pub fn resolve_path(&self, project_root: &Path, workspace_dir: &str, branch: &str) -> PathBuf {
-        project_root.join(workspace_dir).join(self.format_directory_name(branch))
+        project_root
+            .join(workspace_dir)
+            .join(self.format_directory_name(branch))
     }
 
     pub fn extract_branch_from_display(&self, display: &str) -> Option<String> {
@@ -53,7 +55,10 @@ mod tests {
         let workspace_dir = ".workspaces";
         let branch = "feature/foo";
         let path = resolver.resolve_path(&project_root, workspace_dir, branch);
-        assert_eq!(path, PathBuf::from("/home/user/project/.workspaces/feature-foo"));
+        assert_eq!(
+            path,
+            PathBuf::from("/home/user/project/.workspaces/feature-foo")
+        );
     }
 
     #[test]
@@ -70,5 +75,15 @@ mod tests {
         let path = PathBuf::from("/home/user/project");
         let result = resolver.resolve_absolute(&path);
         assert_eq!(result, "/home/user/project");
+    }
+    #[test]
+    fn extract_branch_name_from_display_returns_none_when_no_separator() {
+        // Direct function call
+        let result = extract_branch_name_from_display("main");
+        assert_eq!(result, None);
+        // Via struct method
+        let resolver = WorkspaceResolver;
+        let result = resolver.extract_branch_from_display("main");
+        assert_eq!(result, None);
     }
 }
