@@ -409,13 +409,13 @@ mod tests {
         );
         // Unset SHELL so we get the getent path.
         let orig_shell = std::env::var("SHELL").ok();
-        std::env::remove_var("SHELL");
+        unsafe { std::env::remove_var("SHELL") };
 
         let result = executor_with(f).resolve_shell_command();
         assert_eq!(result, "/usr/bin/zsh");
 
         if let Some(s) = orig_shell {
-            std::env::set_var("SHELL", s);
+            unsafe { std::env::set_var("SHELL", s) };
         }
     }
 
@@ -433,12 +433,12 @@ mod tests {
         // Make getent fail → fall through to SHELL
         f.err("id", "-u");
         let orig = std::env::var("SHELL").ok();
-        std::env::set_var("SHELL", "/bin/ksh");
+        unsafe { std::env::set_var("SHELL", "/bin/ksh") };
         assert_eq!(executor_with(f).resolve_shell_command(), "/bin/ksh");
         if let Some(s) = orig {
-            std::env::set_var("SHELL", s);
+            unsafe { std::env::set_var("SHELL", s) };
         } else {
-            std::env::remove_var("SHELL");
+            unsafe { std::env::remove_var("SHELL") };
         }
     }
 
@@ -455,13 +455,13 @@ mod tests {
         );
         f.err("id", "-u"); // no uid
         let orig = std::env::var("SHELL").ok();
-        std::env::remove_var("SHELL");
+        unsafe { std::env::remove_var("SHELL") };
         assert_eq!(
             executor_with(f).resolve_shell_command(),
             "/bin/bash".to_string()
         );
         if let Some(s) = orig {
-            std::env::set_var("SHELL", s);
+            unsafe { std::env::set_var("SHELL", s) };
         }
     }
 
