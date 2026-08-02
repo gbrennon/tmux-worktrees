@@ -22,10 +22,6 @@ test-filter FILTER:
 test-verbose:
     cargo llvm-cov --text -- --nocapture
 
-# generate lcov + HTML coverage reports
+# run tests with terminal coverage report
 coverage:
-    cargo llvm-cov --lcov --html
-
-# generate coverage reports and open HTML in browser
-coverage-open: coverage
-    xdg-open target/llvm-cov/html/index.html
+    cargo llvm-cov --text
