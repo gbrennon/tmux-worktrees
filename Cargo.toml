@@ -3,8 +3,27 @@ name = "tmux-worktrees"
 version = "0.1.0"
 edition = "2021"
 
+[lib]
+name = "tmux_worktrees"
+path = "src/lib.rs"
+
+[[test]]
+name = "git_executor_test"
+path = "tests/infrastructure/git_executor_test.rs"
+
+[[test]]
+name = "tmux_executor_test"
+path = "tests/infrastructure/tmux_executor_test.rs"
+
+[[test]]
+name = "e2e_worktree_lifecycle"
+path = "tests/e2e/worktree_lifecycle.rs"
+
 [dependencies]
 ratatui = "0.25"
 crossterm = "0.27"
 anyhow = "1.0"
 fuzzy-matcher = "0.3"
+
+[dev-dependencies]
+tempfile = "3.0"
