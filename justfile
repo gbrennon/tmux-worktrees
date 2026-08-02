@@ -51,3 +51,7 @@ tools:
 install-hooks:
     pipx install lefthook
     lefthook install
+
+# validate workflow files statically (requires actionlint)
+lint-workflows:
+    actionlint -config-file .actionlint.yaml .forgejo/workflows/*.yml
