@@ -77,11 +77,11 @@ fn ensure_workspace_directory_exists(
         if exclude.exists() {
             let content = std::fs::read_to_string(&exclude).unwrap_or_default();
             let line = format!("{workspace_dir}/");
-            if !content.lines().any(|l| l.trim_end() == line) {
-                if let Ok(mut f) = std::fs::OpenOptions::new().append(true).open(&exclude) {
-                    use std::io::Write;
-                    let _ = f.write_all(format!("\n{line}\n").as_bytes());
-                }
+            if !content.lines().any(|l| l.trim_end() == line)
+                && let Ok(mut f) = std::fs::OpenOptions::new().append(true).open(&exclude)
+            {
+                use std::io::Write;
+                let _ = f.write_all(format!("\n{line}\n").as_bytes());
             }
         }
     }

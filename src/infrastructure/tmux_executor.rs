@@ -70,22 +70,19 @@ impl TmuxExecutor {
             .and_then(|o| String::from_utf8(o.stdout).ok())
             .map(|s| s.trim().to_string())
             .unwrap_or_default();
-        if !uid.is_empty() {
-            if let Ok(out) = self.runner.run("getent", &["passwd", &uid], None) {
-                if let Ok(s) = String::from_utf8(out.stdout) {
-                    if let Some(shell) = s.lines().next().and_then(|l| l.split(':').nth(6)) {
-                        if !shell.is_empty() {
-                            return shell.to_string();
-                        }
-                    }
-                }
-            }
+        if !uid.is_empty()
+            && let Ok(out) = self.runner.run("getent", &["passwd", &uid], None)
+            && let Ok(s) = String::from_utf8(out.stdout)
+            && let Some(shell) = s.lines().next().and_then(|l| l.split(':').nth(6))
+            && !shell.is_empty()
+        {
+            return shell.to_string();
         }
         // 3. $SHELL env var
-        if let Ok(shell) = std::env::var("SHELL") {
-            if !shell.is_empty() {
-                return shell;
-            }
+        if let Ok(shell) = std::env::var("SHELL")
+            && !shell.is_empty()
+        {
+            return shell;
         }
         // 4. ultimate fallback
         "/bin/bash".to_string()
