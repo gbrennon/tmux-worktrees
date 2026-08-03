@@ -26,17 +26,15 @@ impl Cli {
 
     /// Entry point: parse the command-line and dispatch.
     pub fn run(&self, args: &[String]) {
-        let cmd = args.get(1).map(String::as_str).unwrap_or("choose");
-        let command = cmd.parse::<Command>().ok();
-        let interactive = command.is_some_and(|c| c.is_interactive());
+        let (cmd, rest) = self.parse_args(args);
 
-        let result = if interactive && !std::io::stdin().is_terminal() {
+        let result = if cmd.is_interactive() && !std::io::stdin().is_terminal() {
             match self.spawn_in_popup(args) {
                 Ok(()) => Ok(()),
-                Err(_) => self.dispatch(args),
+                Err(_) => self.dispatch(cmd, &rest),
             }
         } else {
-            self.dispatch(args)
+            self.dispatch(cmd, &rest)
         };
 
         if let Err(e) = result {
@@ -44,22 +42,17 @@ impl Cli {
         }
     }
 
-    pub fn dispatch(&self, args: &[String]) -> Result<()> {
-        let (cmd, rest) = self.parse_args(args);
-        match cmd.as_str() {
-            "choose" => self.run_choose(),
-            "create-worktree" => {
-                self.run_create(rest.get(1).map(String::as_str).unwrap_or_default())
+    pub fn dispatch(&self, cmd: Command, rest: &[String]) -> Result<()> {
+        match cmd {
+            Command::Choose => self.run_choose(),
+            Command::CreateWorktree => {
+                self.run_create(rest.first().map(String::as_str).unwrap_or_default())
             }
-            "cleanup" => self.run_cleanup(),
-            other => {
-                self.tmux.show_error(&format!("Unknown command: {other}"))?;
-                Ok(())
-            }
+            Command::Cleanup => self.run_cleanup(),
         }
     }
 
-    pub fn parse_args(&self, args: &[String]) -> (String, Vec<String>) {
+    pub fn parse_args(&self, args: &[String]) -> (Command, Vec<String>) {
         let mut rest = Vec::new();
         let mut i = 1;
         while i < args.len() {
@@ -76,12 +69,14 @@ impl Cli {
             }
             i += 1;
         }
-        (
-            rest.first()
-                .cloned()
-                .unwrap_or_else(|| "choose".to_string()),
-            rest,
-        )
+        let cmd = rest
+            .first()
+            .map(|s| s.parse::<Command>().unwrap_or(Command::Choose))
+            .unwrap_or(Command::Choose);
+        if !rest.is_empty() {
+            rest.remove(0);
+        }
+        (cmd, rest)
     }
 
     pub fn spawn_in_popup(&self, args: &[String]) -> Result<()> {
@@ -474,7 +469,7 @@ fn run_selector(
     Ok(result)
 }
 
-pub fn setup_terminal()
+fn setup_terminal()
 -> Result<ratatui::Terminal<ratatui::backend::CrosstermBackend<std::io::Stdout>>> {
     use std::io::stdout;
     crossterm::terminal::enable_raw_mode()?;
@@ -514,7 +509,7 @@ mod tests {
         let fake = FakeRunner::new();
         let cli = cli_with(fake);
         let (cmd, rest) = cli.parse_args(&["tmux-worktrees".to_string()]);
-        assert_eq!(cmd, "choose");
+        assert_eq!(cmd, Command::Choose);
         assert!(rest.is_empty());
     }
 
@@ -528,8 +523,8 @@ mod tests {
             "feat/foo".to_string(),
             "--root=/home/user/repo".to_string(),
         ]);
-        assert_eq!(cmd, "create-worktree");
-        assert_eq!(rest, vec!["create-worktree", "feat/foo"]);
+        assert_eq!(cmd, Command::CreateWorktree);
+        assert_eq!(rest, vec!["feat/foo"]);
     }
 
     #[test]
@@ -542,23 +537,15 @@ mod tests {
             "--root".to_string(),
             "/home/user/repo".to_string(),
         ]);
-        assert_eq!(cmd, "choose");
-        assert_eq!(rest, vec!["choose"]);
+        assert_eq!(cmd, Command::Choose);
+        assert!(rest.is_empty());
     }
 
     #[test]
-    fn dispatch_unknown_command_shows_error() {
-        let f = FakeRunner::new();
-        f.ok(
-            "tmux",
-            "display-message:-d:5000:tmux-worktrees: Unknown command: bogus",
-            0,
-            "",
-            "",
-        );
-
-        let cli = cli_with(f);
-        let args = vec!["tmux-worktrees".to_string(), "bogus".to_string()];
-        cli.dispatch(&args).unwrap();
+    fn unknown_command_defaults_to_choose() {
+        let fake = FakeRunner::new();
+        let cli = cli_with(fake);
+        let (cmd, _rest) = cli.parse_args(&["tmux-worktrees".to_string(), "bogus".to_string()]);
+        assert_eq!(cmd, Command::Choose);
     }
 }
