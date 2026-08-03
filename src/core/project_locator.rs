@@ -185,7 +185,6 @@ mod tests {
         let project = dir.path().join("project");
         let info_dir = project.join(".git").join("info");
         fs::create_dir_all(&info_dir).unwrap();
-        // Write exclude without the workspace dir line
         fs::write(info_dir.join("exclude"), "# existing exclude\n").unwrap();
         let workspace_dir = ".workspaces";
         let result = locator.ensure_workspace_directory(&project, workspace_dir);
@@ -202,7 +201,6 @@ mod tests {
         let project = dir.path().join("project");
         let info_dir = project.join(".git").join("info");
         fs::create_dir_all(&info_dir).unwrap();
-        // Write exclude WITH the workspace dir line already present
         let original = "# existing exclude\n.workspaces/\n";
         fs::write(info_dir.join("exclude"), original).unwrap();
         let workspace_dir = ".workspaces";
@@ -210,7 +208,6 @@ mod tests {
         assert!(result.is_ok());
         assert!(project.join(workspace_dir).is_dir());
         let exclude_content = fs::read_to_string(info_dir.join("exclude")).unwrap();
-        // Content should be unchanged (no duplicate line appended)
         assert_eq!(exclude_content, original);
     }
 
@@ -221,7 +218,6 @@ mod tests {
         let project = dir.path().join("project");
         let info_dir = project.join(".git").join("info");
         fs::create_dir_all(&info_dir).unwrap();
-        // Create a FILE at the workspace dir path, so create_dir fails
         let workspace_dir = ".workspaces";
         fs::write(project.join(workspace_dir), "blocker").unwrap();
         let result = locator.ensure_workspace_directory(&project, workspace_dir);
