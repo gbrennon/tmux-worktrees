@@ -9,7 +9,10 @@ pub struct Container;
 impl Container {
     /// Build a fully wired [`Cli`] backed by real tmux and git executors.
     pub fn build_cli() -> Cli {
-        Cli::new(Box::new(TmuxExecutor::default()), Box::new(GitExecutor::default()))
+        Cli::new(
+            Box::new(TmuxExecutor::default()),
+            Box::new(GitExecutor::default()),
+        )
     }
 }
 
