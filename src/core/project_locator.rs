@@ -77,11 +77,11 @@ fn ensure_workspace_directory_exists(
         if exclude.exists() {
             let content = std::fs::read_to_string(&exclude).unwrap_or_default();
             let line = format!("{workspace_dir}/");
-            if !content.lines().any(|l| l.trim_end() == line) {
-                if let Ok(mut f) = std::fs::OpenOptions::new().append(true).open(&exclude) {
-                    use std::io::Write;
-                    let _ = f.write_all(format!("\n{line}\n").as_bytes());
-                }
+            if !content.lines().any(|l| l.trim_end() == line)
+                && let Ok(mut f) = std::fs::OpenOptions::new().append(true).open(&exclude)
+            {
+                use std::io::Write;
+                let _ = f.write_all(format!("\n{line}\n").as_bytes());
             }
         }
     }
@@ -100,15 +100,15 @@ mod tests {
         let project = dir.path().join("project");
         fs::create_dir_all(&project).unwrap();
         fs::create_dir(project.join(".git")).unwrap();
-        std::env::set_var("TMUX_WORKTREES_ROOT", project.to_str().unwrap());
+        unsafe { std::env::set_var("TMUX_WORKTREES_ROOT", project.to_str().unwrap()) };
         let result = ProjectLocator::from_env();
         assert_eq!(result, Some(project.to_string_lossy().into_owned()));
-        std::env::remove_var("TMUX_WORKTREES_ROOT");
+        unsafe { std::env::remove_var("TMUX_WORKTREES_ROOT") };
     }
 
     #[test]
     fn project_locator_from_env_returns_none_when_not_set() {
-        std::env::remove_var("TMUX_WORKTREES_ROOT");
+        unsafe { std::env::remove_var("TMUX_WORKTREES_ROOT") };
         let result = ProjectLocator::from_env();
         assert_eq!(result, None);
     }
@@ -116,10 +116,10 @@ mod tests {
     #[test]
     fn project_locator_from_env_returns_none_when_not_git() {
         let dir = tempdir().unwrap();
-        std::env::set_var("TMUX_WORKTREES_ROOT", dir.path().to_str().unwrap());
+        unsafe { std::env::set_var("TMUX_WORKTREES_ROOT", dir.path().to_str().unwrap()) };
         let result = ProjectLocator::from_env();
         assert_eq!(result, None);
-        std::env::remove_var("TMUX_WORKTREES_ROOT");
+        unsafe { std::env::remove_var("TMUX_WORKTREES_ROOT") };
     }
 
     #[test]

@@ -180,13 +180,15 @@ fn find_repo_root_via_env_var() {
     let guard = init_ephemeral_repo();
     let (_tmux, _git) = e2e_ctx();
     // find_repo_root checks TMUX_WORKTREES_ROOT env var first
-    std::env::set_var(
-        "TMUX_WORKTREES_ROOT",
-        guard.repo_path().to_string_lossy().as_ref(),
-    );
+    unsafe {
+        std::env::set_var(
+            "TMUX_WORKTREES_ROOT",
+            guard.repo_path().to_string_lossy().as_ref(),
+        )
+    };
     let root = app::find_repo_root(&_tmux).unwrap();
     assert_eq!(root, guard.repo_path().to_string_lossy());
-    std::env::remove_var("TMUX_WORKTREES_ROOT");
+    unsafe { std::env::remove_var("TMUX_WORKTREES_ROOT") };
 }
 
 #[test]
@@ -194,7 +196,7 @@ fn find_repo_root_by_walking() {
     let guard = init_ephemeral_repo();
     let (_tmux, _git) = e2e_ctx();
     // Ensure no env-var shortcut
-    std::env::remove_var("TMUX_WORKTREES_ROOT");
+    unsafe { std::env::remove_var("TMUX_WORKTREES_ROOT") };
     std::env::set_current_dir(guard.repo_path()).unwrap();
     let root = app::find_repo_root(&_tmux).unwrap();
     assert_eq!(root, guard.repo_path().to_string_lossy());
@@ -206,7 +208,7 @@ fn find_repo_root_from_subdirectory() {
     let subdir = guard.repo_path().join("src");
     std::fs::create_dir(&subdir).unwrap();
     let (_tmux, _git) = e2e_ctx();
-    std::env::remove_var("TMUX_WORKTREES_ROOT");
+    unsafe { std::env::remove_var("TMUX_WORKTREES_ROOT") };
     std::env::set_current_dir(&subdir).unwrap();
     let found = app::find_repo_root(&_tmux).unwrap();
     assert_eq!(found, guard.repo_path().to_string_lossy());

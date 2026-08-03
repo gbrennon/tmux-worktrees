@@ -1,5 +1,5 @@
 use anyhow::{Context, Result};
-use fuzzy_matcher::{clangd::ClangdMatcher, FuzzyMatcher};
+use fuzzy_matcher::{FuzzyMatcher, clangd::ClangdMatcher};
 use std::path::Path;
 
 use crate::core::{
@@ -37,10 +37,10 @@ pub fn parse_args(args: &[String]) -> (String, Vec<String>) {
     while i < args.len() {
         let a = &args[i];
         if let Some(root) = a.strip_prefix("--root=") {
-            std::env::set_var("TMUX_WORKTREES_ROOT", root);
+            unsafe { std::env::set_var("TMUX_WORKTREES_ROOT", root) };
         } else if a == "--root" {
             if let Some(root) = args.get(i + 1) {
-                std::env::set_var("TMUX_WORKTREES_ROOT", root);
+                unsafe { std::env::set_var("TMUX_WORKTREES_ROOT", root) };
                 i += 1;
             }
         } else {
@@ -103,12 +103,12 @@ pub fn run_choose(tmux: &dyn TmuxPort, git: &dyn GitPort) -> Result<()> {
         SelectionResult::Cancelled => return Ok(()),
     };
     let ws = repo_root_path.join(&worktree_dir).join(&branch);
-    if ws.is_dir() {
-        if let Ok(resolved) = workspace_branch(git, &ws) {
-            if !resolved.is_empty() && resolved != "?" {
-                return run_create(tmux, git, &resolved);
-            }
-        }
+    if ws.is_dir()
+        && let Ok(resolved) = workspace_branch(git, &ws)
+        && !resolved.is_empty()
+        && resolved != "?"
+    {
+        return run_create(tmux, git, &resolved);
     }
     run_create(tmux, git, &branch)
 }
@@ -177,10 +177,9 @@ fn run_selector(
 
         if let crossterm::event::Event::Key(k) =
             crossterm::event::read().context("Failed to read key event")?
+            && let Some(result) = selector.process_key((k.code, k.modifiers), &filtered)
         {
-            if let Some(result) = selector.process_key((k.code, k.modifiers), &filtered) {
-                break result;
-            }
+            break result;
         }
     };
 
@@ -303,10 +302,10 @@ pub fn find_repo_root(tmux: &dyn TmuxPort) -> Result<String> {
     if let Some(root) = project_locator.by_walking(&std::env::current_dir()?) {
         return Ok(root);
     }
-    if let Ok(Some(v)) = tmux.show_environment("MAIN_PROJECT_PATH") {
-        if !v.is_empty() {
-            return Ok(v);
-        }
+    if let Ok(Some(v)) = tmux.show_environment("MAIN_PROJECT_PATH")
+        && !v.is_empty()
+    {
+        return Ok(v);
     }
     let dir = tmux.current_pane_path()?;
     let project_locator = ProjectLocator;
@@ -449,8 +448,8 @@ pub fn delete_branch(git: &dyn GitPort, repo_root: &Path, branch: &str) {
 // Terminal helpers
 // ---------------------------------------------------------------------------
 
-pub fn setup_terminal(
-) -> Result<ratatui::Terminal<ratatui::backend::CrosstermBackend<std::io::Stdout>>> {
+pub fn setup_terminal()
+-> Result<ratatui::Terminal<ratatui::backend::CrosstermBackend<std::io::Stdout>>> {
     use std::io::stdout;
     crossterm::terminal::enable_raw_mode()?;
     crossterm::execute!(stdout(), crossterm::terminal::EnterAlternateScreen)?;
