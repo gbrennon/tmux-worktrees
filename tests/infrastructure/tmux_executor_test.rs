@@ -6,11 +6,9 @@ use std::sync::LazyLock;
 use tmux_worktrees::infrastructure::command_runner::{CommandRunner, SystemCommandRunner};
 use tmux_worktrees::infrastructure::tmux_executor::TmuxExecutor;
 
-// ---------------------------------------------------------------------------
 // Isolated tmux test server — spawned once per test binary, shared by all
 // integration tests.  Uses a unique socket so it never touches the user's
 // real tmux server.
-// ---------------------------------------------------------------------------
 
 /// Wraps [`SystemCommandRunner`] and prepends `-L <socket>` to every `tmux`
 /// invocation so all commands target the isolated test server.
@@ -70,9 +68,7 @@ fn executor_for_test(socket: &str) -> TmuxExecutor {
     }))
 }
 
-// ---------------------------------------------------------------------------
 // Tests that don't need a server
-// ---------------------------------------------------------------------------
 
 #[cfg(test)]
 mod tests {
@@ -101,9 +97,7 @@ mod tests {
         assert!(!result.is_empty());
     }
 
-    // -----------------------------------------------------------------------
     // Tests that target the isolated test server
-    // -----------------------------------------------------------------------
 
     #[test]
     fn tmux_executor_can_run_command() {
