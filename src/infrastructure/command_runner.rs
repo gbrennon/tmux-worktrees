@@ -24,9 +24,6 @@ impl CommandRunner for SystemCommandRunner {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Shared test-support — stores raw parts so the map can be cloned.
-// ---------------------------------------------------------------------------
 #[cfg(test)]
 pub(crate) mod test_support {
     use super::*;
@@ -65,6 +62,7 @@ pub(crate) mod test_support {
     /// A fake [`CommandRunner`] keyed by `"program:arg1:arg2:…"`.
     ///
     /// Unrecognised keys return a process-not-found error so tests fail fast.
+    #[derive(Clone)]
     pub struct FakeRunner {
         entries: RefCell<HashMap<String, Entry>>,
     }
