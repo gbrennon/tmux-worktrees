@@ -1,6 +1,6 @@
 use std::io;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Output};
+use std::process::{Command as ProcessCommand, Output};
 use std::sync::LazyLock;
 
 use tempfile::TempDir;
@@ -8,6 +8,7 @@ use tmux_worktrees::infrastructure::command_runner::{CommandRunner, SystemComman
 use tmux_worktrees::infrastructure::git_executor::GitExecutor;
 use tmux_worktrees::infrastructure::tmux_executor::TmuxExecutor;
 use tmux_worktrees::presentation::cli::Cli;
+use tmux_worktrees::presentation::command::Command as AppCommand;
 
 // Isolated tmux test server — spawned once per test binary, never touches
 // the user's real tmux server.
@@ -36,11 +37,11 @@ impl CommandRunner for SocketRunner {
 static TEST_SOCKET: LazyLock<Option<String>> = LazyLock::new(|| {
     let socket = format!("tmux-worktrees-e2e-{}", std::process::id());
     // Kill any leftover server from a previous run with the same PID
-    let _ = Command::new("tmux")
+    let _ = ProcessCommand::new("tmux")
         .args(["-L", &socket, "kill-server"])
         .output();
 
-    let result = Command::new("tmux")
+    let result = ProcessCommand::new("tmux")
         .args([
             "-L",
             &socket,
@@ -109,7 +110,7 @@ fn init_ephemeral_repo() -> RepoGuard {
     std::fs::create_dir(&repo).unwrap();
 
     let run_git = |args: &[&str]| {
-        let status = Command::new("git")
+        let status = ProcessCommand::new("git")
             .args(args)
             .current_dir(&repo)
             .status()
@@ -143,7 +144,7 @@ fn parse_args_defaults_to_choose() {
     let (tmux, git) = e2e_ctx();
     let cli = e2e_cli(tmux, git);
     let (cmd, rest) = cli.parse_args(&["tmux-worktrees".to_string()]);
-    assert_eq!(cmd, "choose");
+    assert_eq!(cmd, AppCommand::Choose);
     assert!(rest.is_empty());
 }
 
@@ -152,8 +153,8 @@ fn parse_args_extracts_command() {
     let (tmux, git) = e2e_ctx();
     let cli = e2e_cli(tmux, git);
     let (cmd, rest) = cli.parse_args(&["tmux-worktrees".to_string(), "cleanup".to_string()]);
-    assert_eq!(cmd, "cleanup");
-    assert_eq!(rest, vec!["cleanup"]);
+    assert_eq!(cmd, AppCommand::Cleanup);
+    assert!(rest.is_empty());
 }
 
 #[test]
@@ -165,21 +166,21 @@ fn parse_args_preserves_trailing_args() {
         "create-worktree".to_string(),
         "feat/some-branch".to_string(),
     ]);
-    assert_eq!(cmd, "create-worktree");
-    assert_eq!(rest, vec!["create-worktree", "feat/some-branch"]);
+    assert_eq!(cmd, AppCommand::CreateWorktree);
+    assert_eq!(rest, vec!["feat/some-branch"]);
 }
 
 #[test]
 fn parse_args_strips_root_equals_flag() {
     let (tmux, git) = e2e_ctx();
     let cli = e2e_cli(tmux, git);
-    let (cmd, rest) = cli.parse_args(&[
+    let (cmd, _rest) = cli.parse_args(&[
         "tmux-worktrees".to_string(),
         "choose".to_string(),
         "--root=/tmp/test".to_string(),
     ]);
-    assert_eq!(cmd, "choose");
-    assert_eq!(rest, vec!["choose"]);
+    assert_eq!(cmd, AppCommand::Choose);
+    assert!(_rest.is_empty());
 }
 #[test]
 fn find_repo_root_via_env_var() {
@@ -232,8 +233,8 @@ fn parse_args_strips_separate_root_flag() {
         "--root".to_string(),
         "/tmp/test".to_string(),
     ]);
-    assert_eq!(cmd, "choose");
-    assert_eq!(rest, vec!["choose"]);
+    assert_eq!(cmd, AppCommand::Choose);
+    assert!(rest.is_empty());
 }
 // resolve_default_branch
 
@@ -376,10 +377,11 @@ fn delete_branch_removes_it() {
 // dispatch
 
 #[test]
-fn dispatch_unknown_command_shows_error() {
+fn unknown_command_defaults_to_choose() {
     let (tmux, git) = e2e_ctx();
     let cli = e2e_cli(tmux, git);
-    let result = cli.dispatch(&["tmux-worktrees".to_string(), "nonexistent-cmd".to_string()]);
-    // Should succeed (error is displayed in tmux, not returned)
-    assert!(result.is_ok());
+    let (cmd, rest) =
+        cli.parse_args(&["tmux-worktrees".to_string(), "nonexistent-cmd".to_string()]);
+    assert_eq!(cmd, AppCommand::Choose);
+    assert!(rest.is_empty());
 }
