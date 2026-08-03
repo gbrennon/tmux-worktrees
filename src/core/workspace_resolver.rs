@@ -78,10 +78,8 @@ mod tests {
     }
     #[test]
     fn extract_branch_name_from_display_returns_none_when_no_separator() {
-        // Direct function call
         let result = extract_branch_name_from_display("main");
         assert_eq!(result, None);
-        // Via struct method
         let resolver = WorkspaceResolver;
         let result = resolver.extract_branch_from_display("main");
         assert_eq!(result, None);
