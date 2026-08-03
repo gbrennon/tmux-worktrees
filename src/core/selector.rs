@@ -163,7 +163,13 @@ mod tests {
 
     #[test]
     fn clamp_selection_within_bounds() {
-        let items = vec!["a".to_string(), "b".to_string(), "c".to_string(), "d".to_string(), "e".to_string()];
+        let items = vec![
+            "a".to_string(),
+            "b".to_string(),
+            "c".to_string(),
+            "d".to_string(),
+            "e".to_string(),
+        ];
         let mut selector = Selector::new(items, false);
         selector.clamp_selection(5);
         assert_eq!(selector.selected_index(), 0);
@@ -315,7 +321,6 @@ mod tests {
         assert_eq!(result, None);
     }
 
-
     #[test]
     fn selector_filter_inline_works() {
         let items = vec!["foo".to_string(), "bar".to_string(), "baz".to_string()];
@@ -342,7 +347,6 @@ mod tests {
         assert_eq!(result, Some(SelectionResult::Cancelled));
         assert_eq!(selector.query(), "");
     }
-
 
     #[test]
     fn process_key_unknown_key_returns_none() {
