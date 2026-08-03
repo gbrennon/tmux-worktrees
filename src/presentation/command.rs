@@ -83,4 +83,26 @@ mod tests {
         assert!(Command::Cleanup.is_interactive());
         assert!(!Command::CreateWorktree.is_interactive());
     }
+
+    #[test]
+    fn as_str_returns_correct_variants() {
+        assert_eq!(Command::Choose.as_str(), "choose");
+        assert_eq!(Command::CreateWorktree.as_str(), "create-worktree");
+        assert_eq!(Command::Cleanup.as_str(), "cleanup");
+    }
+
+    #[test]
+    fn invalid_command_display_shows_message() {
+        assert_eq!(
+            InvalidCommand("bogus-command".into()).to_string(),
+            "invalid command: bogus-command"
+        );
+    }
+
+    #[test]
+    fn invalid_command_is_std_error() {
+        let err = InvalidCommand("test".into());
+        let _: &dyn std::error::Error = &err;
+    }
+
 }
