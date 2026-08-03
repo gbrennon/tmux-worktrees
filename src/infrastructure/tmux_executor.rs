@@ -25,8 +25,6 @@ impl TmuxExecutor {
         Self { runner }
     }
 
-    // -- low-level runner ---------------------------------------------------
-
     pub fn run(&self, args: &[&str]) -> Result<(i32, String, String)> {
         let out = self
             .runner
@@ -43,8 +41,6 @@ impl TmuxExecutor {
         let _ = self.run(args);
     }
 
-    // -- option helpers -----------------------------------------------------
-
     pub fn get_option(&self, name: &str) -> Option<String> {
         match self.run(&["show-option", "-gv", &format!("@{name}")]) {
             Ok((0, out, _)) if !out.is_empty() => Some(out),
@@ -58,11 +54,9 @@ impl TmuxExecutor {
     }
 
     pub fn resolve_shell_command(&self) -> String {
-        // 1. tmux @worktree-command
         if let Some(c) = self.get_option("worktree-command") {
             return c;
         }
-        // 2. getent passwd → login shell
         let uid = self
             .runner
             .run("id", &["-u"], None)
@@ -78,17 +72,13 @@ impl TmuxExecutor {
         {
             return shell.to_string();
         }
-        // 3. $SHELL env var
         if let Ok(shell) = std::env::var("SHELL")
             && !shell.is_empty()
         {
             return shell;
         }
-        // 4. ultimate fallback
         "/bin/bash".to_string()
     }
-
-    // -- window management --------------------------------------------------
 
     pub fn select_or_create_window(&self, branch: &str, cwd: &str, command: &str) -> Result<()> {
         let win = format!("ws-{branch}");
@@ -118,14 +108,12 @@ impl TmuxExecutor {
         }
     }
 
-    // -- display helpers ----------------------------------------------------
-
     pub fn show_error(&self, msg: &str) -> Result<()> {
         eprintln!("{msg}");
         let tmp =
             std::env::temp_dir().join(format!("tmux-worktrees-err-{}.txt", std::process::id()));
         let _ = std::fs::write(&tmp, format!("{msg}\n"));
-        let quoted = shell_quote(tmp.to_string_lossy().as_ref());
+        let quoted = crate::utils::ShellQuoter::quote(tmp.to_string_lossy().as_ref());
         let cmd = format!(
             "cat {quoted}; echo; echo 'Press any key or wait 10s...'; read -t 10 -n1 2>/dev/null || true; rm -f {quoted}"
         );
@@ -155,8 +143,6 @@ impl TmuxExecutor {
         ])?;
         Ok(())
     }
-
-    // -- introspection ------------------------------------------------------
 
     pub fn current_pane_path(&self) -> Result<String> {
         match self.run(&["display-message", "-p", "#{pane_current_path}"]) {
@@ -219,22 +205,6 @@ impl TmuxPort for TmuxExecutor {
     }
 }
 
-// -- free helper ------------------------------------------------------------
-
-fn shell_quote(s: &str) -> String {
-    if s.chars()
-        .all(|c| c.is_alphanumeric() || "_-./:@%+,=".contains(c))
-    {
-        s.to_string()
-    } else {
-        format!("'{}'", s.replace('\'', "'\\''"))
-    }
-}
-
-// ---------------------------------------------------------------------------
-// Tests — every test below uses FakeRunner; zero real tmux / getent / id
-// calls.  Fixture data is captured from actual command output where possible.
-// ---------------------------------------------------------------------------
 #[cfg(test)]
 mod tests {
     use super::super::command_runner::test_support::FakeRunner;
@@ -248,31 +218,32 @@ mod tests {
         TmuxExecutor::with_runner(Box::new(runner))
     }
 
-    // -- pure functions -----------------------------------------------------
-
     #[test]
     fn shell_quote_returns_unquoted_for_safe_chars() {
-        assert_eq!(shell_quote("hello-world_./:@%+,="), "hello-world_./:@%+,=");
+        assert_eq!(
+            crate::utils::ShellQuoter::quote("hello-world_./:@%+,="),
+            "hello-world_./:@%+,="
+        );
     }
 
     #[test]
     fn shell_quote_quotes_string_with_spaces() {
-        assert_eq!(shell_quote("hello world"), "'hello world'");
+        assert_eq!(
+            crate::utils::ShellQuoter::quote("hello world"),
+            "'hello world'"
+        );
     }
 
     #[test]
     fn shell_quote_escapes_single_quotes() {
-        assert_eq!(shell_quote("it's"), "'it'\\''s'");
+        assert_eq!(crate::utils::ShellQuoter::quote("it's"), "'it'\\''s'");
     }
-
-    // -- run / run_ok -------------------------------------------------------
 
     #[test]
     fn run_ok_never_panics_even_on_failure() {
         let f = FakeRunner::new();
         f.ok("tmux", "display-message:test", 1, "", "no server running");
         executor_with(f).run_ok(&["display-message", "test"]);
-        // assert: does not panic
     }
 
     #[test]
@@ -292,8 +263,6 @@ mod tests {
         assert_eq!(stdout, "/home/user/project");
         assert!(stderr.is_empty());
     }
-
-    // -- get_option ---------------------------------------------------------
 
     #[test]
     fn get_option_returns_some_for_set_option() {
@@ -329,8 +298,6 @@ mod tests {
         assert_eq!(executor_with(f).get_option("empty-opt"), None);
     }
 
-    // -- resolve_workspace_dir ----------------------------------------------
-
     #[test]
     fn resolve_workspace_dir_reads_tmux_option() {
         let f = FakeRunner::new();
@@ -363,8 +330,6 @@ mod tests {
         );
     }
 
-    // -- resolve_shell_command ----------------------------------------------
-
     #[test]
     fn resolve_shell_command_uses_tmux_option_first() {
         let f = FakeRunner::new();
@@ -375,7 +340,6 @@ mod tests {
             "/usr/bin/fish\n",
             "",
         );
-        // No id / getent calls needed because the tmux option short-circuits.
         assert_eq!(
             executor_with(f).resolve_shell_command(),
             "/usr/bin/fish".to_string()
@@ -386,7 +350,6 @@ mod tests {
     fn resolve_shell_command_falls_through_to_getent() {
         let _guard = ENV_MUTEX.lock().unwrap();
         let f = FakeRunner::new();
-        // tmux option unset
         f.ok(
             "tmux",
             "show-option:-gv:@worktree-command",
@@ -394,9 +357,7 @@ mod tests {
             "",
             "invalid option\n",
         );
-        // id -u returns uid
         f.ok("id", "-u", 0, "1000\n", "");
-        // getent passwd returns passwd line
         f.ok(
             "getent",
             "passwd:1000",
@@ -404,7 +365,6 @@ mod tests {
             "gbrennon:x:1000:1000:gbrennon:/home/gbrennon:/usr/bin/zsh\n",
             "",
         );
-        // Unset SHELL so we get the getent path.
         let orig_shell = std::env::var("SHELL").ok();
         unsafe { std::env::remove_var("SHELL") };
 
@@ -427,7 +387,6 @@ mod tests {
             "",
             "invalid option\n",
         );
-        // Make getent fail → fall through to SHELL
         f.err("id", "-u");
         let orig = std::env::var("SHELL").ok();
         unsafe { std::env::set_var("SHELL", "/bin/ksh") };
@@ -462,8 +421,6 @@ mod tests {
         }
     }
 
-    // -- window_exists ------------------------------------------------------
-
     #[test]
     fn window_exists_true_when_window_in_list() {
         let f = FakeRunner::new();
@@ -497,12 +454,9 @@ mod tests {
         assert!(!executor_with(f).window_exists("ws-any").unwrap());
     }
 
-    // -- select_or_create_window --------------------------------------------
-
     #[test]
     fn select_or_create_window_creates_new_window() {
         let f = FakeRunner::new();
-        // window_exists → false (list-windows returns nothing with ws-feat-foo)
         f.ok(
             "tmux",
             "list-windows:-F:#{window_name}",
@@ -552,8 +506,6 @@ mod tests {
             .unwrap();
     }
 
-    // -- kill_window --------------------------------------------------------
-
     #[test]
     fn kill_window_kills_when_present() {
         let f = FakeRunner::new();
@@ -572,11 +524,8 @@ mod tests {
     fn kill_window_noop_when_not_present() {
         let f = FakeRunner::new();
         f.ok("tmux", "list-windows:-F:#{window_name}", 0, "omp\n", "");
-        // No kill-window call expected — window not in list.
         executor_with(f).kill_window("nonexistent-window").unwrap();
     }
-
-    // -- display_popup ------------------------------------------------------
 
     #[test]
     fn display_popup_ok() {
@@ -593,13 +542,9 @@ mod tests {
             .unwrap();
     }
 
-    // -- show_error ---------------------------------------------------------
-    // (note: writes a real temp file; the tmux calls are faked)
-
     #[test]
     fn show_error_tries_popup_then_falls_back_to_display_message() {
         let f = FakeRunner::new();
-        // First attempt: display-popup fails
         f.ok(
             "tmux",
             &display_popup_key("tmux-worktrees-err"),
@@ -607,7 +552,6 @@ mod tests {
             "",
             "no server",
         );
-        // Fallback: display-message succeeds
         f.ok(
             "tmux",
             &display_msg_key("tmux-worktrees: test msg"),
@@ -629,14 +573,11 @@ mod tests {
     /// in `show_error`.  The actual command includes a temp-file path, so we
     /// match on the prefix and suffix that is stable.
     fn display_popup_key(_txt_prefix: &str) -> String {
-        // The full args are: display-popup -E -h 20 <cmd-with-temp-path>
-        // We use a prefix-only match via `ok()` with a partial key.
-        // Strategy: just register with a sentinel default-error path.
         let tmp = std::env::temp_dir()
             .join("tmux-worktrees-err-0.txt")
             .to_string_lossy()
             .to_string();
-        let quoted = shell_quote(&tmp);
+        let quoted = crate::utils::ShellQuoter::quote(&tmp);
         let cmd = format!(
             "cat {quoted}; echo; echo 'Press any key or wait 10s...'; read -t 10 -n1 2>/dev/null || true; rm -f {quoted}"
         );
@@ -646,8 +587,6 @@ mod tests {
     fn display_msg_key(msg: &str) -> String {
         format!("display-message:-d:5000:{msg}")
     }
-
-    // -- current_pane_path --------------------------------------------------
 
     #[test]
     fn current_pane_path_returns_path_when_tmux_runs() {
@@ -678,8 +617,6 @@ mod tests {
         let result = executor_with(f).current_pane_path().unwrap();
         assert!(!result.is_empty()); // whatever cwd is at test time
     }
-
-    // -- show_environment ---------------------------------------------------
 
     #[test]
     fn show_environment_returns_some_for_known_var() {
