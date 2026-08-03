@@ -51,8 +51,8 @@ impl Selector {
 }
 
 use crossterm::event::{KeyCode, KeyModifiers};
-use fuzzy_matcher::clangd::ClangdMatcher;
 use fuzzy_matcher::FuzzyMatcher;
+use fuzzy_matcher::clangd::ClangdMatcher;
 
 pub fn filter_items_by_query(items: &[String], query: &str) -> Vec<usize> {
     if query.is_empty() {

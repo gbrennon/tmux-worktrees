@@ -70,22 +70,19 @@ impl TmuxExecutor {
             .and_then(|o| String::from_utf8(o.stdout).ok())
             .map(|s| s.trim().to_string())
             .unwrap_or_default();
-        if !uid.is_empty() {
-            if let Ok(out) = self.runner.run("getent", &["passwd", &uid], None) {
-                if let Ok(s) = String::from_utf8(out.stdout) {
-                    if let Some(shell) = s.lines().next().and_then(|l| l.split(':').nth(6)) {
-                        if !shell.is_empty() {
-                            return shell.to_string();
-                        }
-                    }
-                }
-            }
+        if !uid.is_empty()
+            && let Ok(out) = self.runner.run("getent", &["passwd", &uid], None)
+            && let Ok(s) = String::from_utf8(out.stdout)
+            && let Some(shell) = s.lines().next().and_then(|l| l.split(':').nth(6))
+            && !shell.is_empty()
+        {
+            return shell.to_string();
         }
         // 3. $SHELL env var
-        if let Ok(shell) = std::env::var("SHELL") {
-            if !shell.is_empty() {
-                return shell;
-            }
+        if let Ok(shell) = std::env::var("SHELL")
+            && !shell.is_empty()
+        {
+            return shell;
         }
         // 4. ultimate fallback
         "/bin/bash".to_string()
@@ -409,13 +406,13 @@ mod tests {
         );
         // Unset SHELL so we get the getent path.
         let orig_shell = std::env::var("SHELL").ok();
-        std::env::remove_var("SHELL");
+        unsafe { std::env::remove_var("SHELL") };
 
         let result = executor_with(f).resolve_shell_command();
         assert_eq!(result, "/usr/bin/zsh");
 
         if let Some(s) = orig_shell {
-            std::env::set_var("SHELL", s);
+            unsafe { std::env::set_var("SHELL", s) };
         }
     }
 
@@ -433,12 +430,12 @@ mod tests {
         // Make getent fail → fall through to SHELL
         f.err("id", "-u");
         let orig = std::env::var("SHELL").ok();
-        std::env::set_var("SHELL", "/bin/ksh");
+        unsafe { std::env::set_var("SHELL", "/bin/ksh") };
         assert_eq!(executor_with(f).resolve_shell_command(), "/bin/ksh");
         if let Some(s) = orig {
-            std::env::set_var("SHELL", s);
+            unsafe { std::env::set_var("SHELL", s) };
         } else {
-            std::env::remove_var("SHELL");
+            unsafe { std::env::remove_var("SHELL") };
         }
     }
 
@@ -455,13 +452,13 @@ mod tests {
         );
         f.err("id", "-u"); // no uid
         let orig = std::env::var("SHELL").ok();
-        std::env::remove_var("SHELL");
+        unsafe { std::env::remove_var("SHELL") };
         assert_eq!(
             executor_with(f).resolve_shell_command(),
             "/bin/bash".to_string()
         );
         if let Some(s) = orig {
-            std::env::set_var("SHELL", s);
+            unsafe { std::env::set_var("SHELL", s) };
         }
     }
 
