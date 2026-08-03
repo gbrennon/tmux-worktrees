@@ -469,8 +469,8 @@ fn run_selector(
     Ok(result)
 }
 
-fn setup_terminal()
--> Result<ratatui::Terminal<ratatui::backend::CrosstermBackend<std::io::Stdout>>> {
+fn setup_terminal() -> Result<ratatui::Terminal<ratatui::backend::CrosstermBackend<std::io::Stdout>>>
+{
     use std::io::stdout;
     crossterm::terminal::enable_raw_mode()?;
     crossterm::execute!(stdout(), crossterm::terminal::EnterAlternateScreen)?;
