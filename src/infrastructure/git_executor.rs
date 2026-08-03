@@ -53,9 +53,6 @@ impl GitPort for GitExecutor {
     }
 }
 
-// ---------------------------------------------------------------------------
-// Tests — use FakeRunner with captured real output, zero shell calls.
-// ---------------------------------------------------------------------------
 #[cfg(test)]
 mod tests {
     use super::super::command_runner::test_support::FakeRunner;
@@ -82,7 +79,6 @@ mod tests {
     #[test]
     fn silent_in_suppresses_command_failure() {
         let f = FakeRunner::new();
-        // Simulate a git error — silent_in must swallow it.
         f.ok(
             "git",
             "--nonexistent-flag-xyz",
