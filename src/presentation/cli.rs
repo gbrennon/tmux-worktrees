@@ -248,11 +248,15 @@ impl Cli {
     }
 
     pub fn find_repo_root(&self) -> Result<String> {
+        self.find_repo_root_from(&std::env::current_dir()?)
+    }
+
+    pub fn find_repo_root_from(&self, start: &Path) -> Result<String> {
         let project_locator = ProjectLocator;
         if let Some(root) = ProjectLocator::from_env() {
             return Ok(root);
         }
-        if let Some(root) = project_locator.by_walking(&std::env::current_dir()?) {
+        if let Some(root) = project_locator.by_walking(start) {
             return Ok(root);
         }
         if let Ok(Some(v)) = self.tmux.show_environment("MAIN_PROJECT_PATH")
@@ -267,7 +271,6 @@ impl Cli {
         }
         Err(crate::core::error::Error::new("Not in a git repository"))
     }
-
     pub fn resolve_default_branch(&self, repo_root: &Path) -> Result<String> {
         let project_locator = ProjectLocator;
         let global = self
