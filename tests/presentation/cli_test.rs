@@ -33,10 +33,10 @@ impl TmuxPort for StubTmx {
         unimplemented!()
     }
     fn show_environment(&self, _v: &str) -> Result<Option<String>> {
-        unimplemented!()
+        Ok(None)
     }
     fn current_pane_path(&self) -> Result<String> {
-        unimplemented!()
+        Ok(".".to_string())
     }
     fn run(&self, _a: &[&str]) -> Result<(i32, String, String)> {
         unimplemented!()
@@ -81,10 +81,10 @@ impl TmuxPort for FakeTmxShowError {
         unimplemented!()
     }
     fn show_environment(&self, _v: &str) -> Result<Option<String>> {
-        unimplemented!()
+        Ok(None)
     }
     fn current_pane_path(&self) -> Result<String> {
-        unimplemented!()
+        Ok(".".to_string())
     }
     fn run(&self, _a: &[&str]) -> Result<(i32, String, String)> {
         unimplemented!()
@@ -131,10 +131,10 @@ impl TmuxPort for FakeTmxNonTty {
         unimplemented!()
     }
     fn show_environment(&self, _v: &str) -> Result<Option<String>> {
-        unimplemented!()
+        Ok(None)
     }
     fn current_pane_path(&self) -> Result<String> {
-        unimplemented!()
+        Ok(".".to_string())
     }
     fn run(&self, _a: &[&str]) -> Result<(i32, String, String)> {
         unimplemented!()
@@ -311,10 +311,10 @@ impl TmuxPort for FakeTmxWithWindow {
         unimplemented!()
     }
     fn show_environment(&self, _v: &str) -> Result<Option<String>> {
-        unimplemented!()
+        Ok(None)
     }
     fn current_pane_path(&self) -> Result<String> {
-        unimplemented!()
+        Ok(".".to_string())
     }
 }
 
@@ -360,10 +360,10 @@ impl TmuxPort for FakeTmxNoWindow {
         unimplemented!()
     }
     fn show_environment(&self, _v: &str) -> Result<Option<String>> {
-        unimplemented!()
+        Ok(None)
     }
     fn current_pane_path(&self) -> Result<String> {
-        unimplemented!()
+        Ok(".".to_string())
     }
 }
 
@@ -671,6 +671,8 @@ fn run_interactive_from_non_tty_uses_popup_path() {
     let tmux = FakeTmxNonTty::new();
     let guard = tmux.clone();
     let cli = cli_with(tmux, StubGit);
+    let root = std::env::current_dir().unwrap();
+    unsafe { std::env::set_var("TMUX_WORKTREES_ROOT", root.to_str().unwrap()) };
     cli.run(&["tmux-worktrees".to_string(), "choose".to_string()]);
     assert!(!guard.show_error_called.get());
 }
