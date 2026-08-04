@@ -19,10 +19,17 @@ path = "tests/infrastructure/tmux_executor_test.rs"
 name = "e2e_worktree_lifecycle"
 path = "tests/e2e/worktree_lifecycle.rs"
 
+
+[[test]]
+name = "cli_test"
+path = "tests/presentation/cli_test.rs"
+
+[[test]]
+name = "command_test"
+path = "tests/presentation/command_test.rs"
 [dependencies]
 ratatui = "0.25"
 crossterm = "0.27"
-anyhow = "1.0"
 fuzzy-matcher = "0.3"
 
 [dev-dependencies]
