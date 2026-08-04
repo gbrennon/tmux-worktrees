@@ -1,9 +1,9 @@
 // Fakes - one per scenario, extremely specific
 
-use anyhow::Result;
 use std::cell::RefCell;
 use std::path::Path;
 use std::rc::Rc;
+use tmux_worktrees::core::error::Result;
 
 struct FakeGitExecutorForVersion;
 
