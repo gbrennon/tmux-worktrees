@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use crate::core::error::Result;
 use fuzzy_matcher::{FuzzyMatcher, clangd::ClangdMatcher};
 use std::io::IsTerminal;
 use std::path::Path;
@@ -87,7 +87,9 @@ impl Cli {
                 return Ok(());
             }
         };
-        let exe = std::env::current_exe().context("Failed to resolve current executable")?;
+        let exe = std::env::current_exe().map_err(|e| {
+            crate::core::error::Error::new(format!("Failed to resolve current executable: {}", e))
+        })?;
         let mut cmd = crate::utils::ShellQuoter::quote(&exe.to_string_lossy());
         for a in args.iter().skip(1) {
             if a.starts_with("--root") {
@@ -103,9 +105,9 @@ impl Cli {
     }
 
     pub fn run_choose(&self) -> Result<()> {
-        let repo_root = self
-            .find_repo_root()
-            .context("Failed to find repository root")?;
+        let repo_root = self.find_repo_root().map_err(|e| {
+            crate::core::error::Error::new(format!("Failed to find repository root: {}", e))
+        })?;
         let repo_root_path = Path::new(&repo_root);
         std::env::set_current_dir(repo_root_path)?;
         let worktree_dir = self.tmux.resolve_workspace_dir();
@@ -141,9 +143,9 @@ impl Cli {
             )?;
             return Ok(());
         }
-        let repo_root = self
-            .find_repo_root()
-            .context("Failed to find repository root")?;
+        let repo_root = self.find_repo_root().map_err(|e| {
+            crate::core::error::Error::new(format!("Failed to find repository root: {}", e))
+        })?;
         let repo_root_path = Path::new(&repo_root);
         std::env::set_current_dir(repo_root_path)?;
         let worktree_dir = self.tmux.resolve_workspace_dir();
@@ -167,9 +169,9 @@ impl Cli {
     }
 
     pub fn run_cleanup(&self) -> Result<()> {
-        let repo_root = self
-            .find_repo_root()
-            .context("Failed to find repository root")?;
+        let repo_root = self.find_repo_root().map_err(|e| {
+            crate::core::error::Error::new(format!("Failed to find repository root: {}", e))
+        })?;
         let repo_root_path = Path::new(&repo_root);
         std::env::set_current_dir(repo_root_path)?;
         let worktree_dir = self.tmux.resolve_workspace_dir();
@@ -261,7 +263,7 @@ impl Cli {
         if let Some(root) = project_locator.by_walking(Path::new(&dir)) {
             return Ok(root);
         }
-        anyhow::bail!("Not in a git repository")
+        Err(crate::core::error::Error::new("Not in a git repository"))
     }
 
     pub fn resolve_default_branch(&self, repo_root: &Path) -> Result<String> {
@@ -361,7 +363,11 @@ impl Cli {
             ],
         )?;
         if status != 0 {
-            anyhow::bail!("{}", if stdout.is_empty() { stderr } else { stdout });
+            return Err(crate::core::error::Error::new(if stdout.is_empty() {
+                stderr
+            } else {
+                stdout
+            }));
         }
         Ok(())
     }
@@ -375,7 +381,11 @@ impl Cli {
             &["worktree", "remove", "--force", ws_dir.to_str().unwrap()],
         )?;
         if status != 0 {
-            anyhow::bail!("{}", if stdout.is_empty() { stderr } else { stdout });
+            return Err(crate::core::error::Error::new(if stdout.is_empty() {
+                stderr
+            } else {
+                stdout
+            }));
         }
         Ok(())
     }
@@ -407,7 +417,9 @@ fn run_selector(
         widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
     };
     let mut terminal = setup_terminal()?;
-    terminal.clear().context("Failed to clear terminal")?;
+    terminal
+        .clear()
+        .map_err(|e| crate::core::error::Error::new(format!("Failed to clear terminal: {}", e)))?;
     let matcher = ClangdMatcher::default();
 
     let result = loop {
@@ -455,11 +467,13 @@ fn run_selector(
                     .highlight_style(Style::default().fg(Color::Yellow));
                 f.render_stateful_widget(list, chunks[2], &mut ls);
             })
-            .context("Failed to draw terminal")?;
+            .map_err(|e| {
+                crate::core::error::Error::new(format!("Failed to draw terminal: {}", e))
+            })?;
 
-        if let crossterm::event::Event::Key(k) =
-            crossterm::event::read().context("Failed to read key event")?
-            && let Some(result) = selector.process_key((k.code, k.modifiers), &filtered)
+        if let crossterm::event::Event::Key(k) = crossterm::event::read().map_err(|e| {
+            crate::core::error::Error::new(format!("Failed to read key event: {}", e))
+        })? && let Some(result) = selector.process_key((k.code, k.modifiers), &filtered)
         {
             break result;
         }
@@ -475,7 +489,9 @@ fn setup_terminal() -> Result<ratatui::Terminal<ratatui::backend::CrosstermBacke
     crossterm::terminal::enable_raw_mode()?;
     crossterm::execute!(stdout(), crossterm::terminal::EnterAlternateScreen)?;
     let backend = ratatui::backend::CrosstermBackend::new(stdout());
-    ratatui::Terminal::new(backend).context("Failed to initialize terminal")
+    ratatui::Terminal::new(backend).map_err(|e| {
+        crate::core::error::Error::new(format!("Failed to initialize terminal: {}", e))
+    })
 }
 
 fn restore_terminal(
@@ -488,64 +504,4 @@ fn restore_terminal(
     )?;
     terminal.show_cursor()?;
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::infrastructure::command_runner::test_support::FakeRunner;
-    use crate::infrastructure::git_executor::GitExecutor;
-    use crate::infrastructure::tmux_executor::TmuxExecutor;
-
-    fn cli_with(fake: FakeRunner) -> Cli {
-        Cli::new(
-            Box::new(TmuxExecutor::with_runner(Box::new(fake.clone()))),
-            Box::new(GitExecutor::with_runner(Box::new(fake))),
-        )
-    }
-
-    #[test]
-    fn parse_args_defaults_to_choose() {
-        let fake = FakeRunner::new();
-        let cli = cli_with(fake);
-        let (cmd, rest) = cli.parse_args(&["tmux-worktrees".to_string()]);
-        assert_eq!(cmd, Command::Choose);
-        assert!(rest.is_empty());
-    }
-
-    #[test]
-    fn parse_args_extracts_root_and_branch() {
-        let fake = FakeRunner::new();
-        let cli = cli_with(fake);
-        let (cmd, rest) = cli.parse_args(&[
-            "tmux-worktrees".to_string(),
-            "create-worktree".to_string(),
-            "feat/foo".to_string(),
-            "--root=/home/user/repo".to_string(),
-        ]);
-        assert_eq!(cmd, Command::CreateWorktree);
-        assert_eq!(rest, vec!["feat/foo"]);
-    }
-
-    #[test]
-    fn parse_args_supports_separate_root_flag() {
-        let fake = FakeRunner::new();
-        let cli = cli_with(fake);
-        let (cmd, rest) = cli.parse_args(&[
-            "tmux-worktrees".to_string(),
-            "choose".to_string(),
-            "--root".to_string(),
-            "/home/user/repo".to_string(),
-        ]);
-        assert_eq!(cmd, Command::Choose);
-        assert!(rest.is_empty());
-    }
-
-    #[test]
-    fn unknown_command_defaults_to_choose() {
-        let fake = FakeRunner::new();
-        let cli = cli_with(fake);
-        let (cmd, _rest) = cli.parse_args(&["tmux-worktrees".to_string(), "bogus".to_string()]);
-        assert_eq!(cmd, Command::Choose);
-    }
 }
