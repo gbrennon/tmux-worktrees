@@ -2,6 +2,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::process::{Command as ProcessCommand, Output};
 use std::sync::LazyLock;
+use std::sync::Mutex;
 
 use tempfile::TempDir;
 use tmux_worktrees::infrastructure::command_runner::{CommandRunner, SystemCommandRunner};
@@ -9,6 +10,10 @@ use tmux_worktrees::infrastructure::git_executor::GitExecutor;
 use tmux_worktrees::infrastructure::tmux_executor::TmuxExecutor;
 use tmux_worktrees::presentation::cli::Cli;
 use tmux_worktrees::presentation::command::Command as AppCommand;
+
+// Serialises tests that manipulate TMUX_WORKTREES_ROOT to prevent races
+// across parallel test threads (std::env::set_var is process-wide).
+static ENV_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 
 // Isolated tmux test server — spawned once per test binary, never touches
 // the user's real tmux server.
@@ -184,6 +189,7 @@ fn parse_args_strips_root_equals_flag() {
 }
 #[test]
 fn find_repo_root_via_env_var() {
+    let _guard = ENV_LOCK.lock().unwrap();
     let guard = init_ephemeral_repo();
     let (tmux, git) = e2e_ctx();
     let cli = e2e_cli(tmux, git);
@@ -201,30 +207,31 @@ fn find_repo_root_via_env_var() {
 
 #[test]
 fn find_repo_root_by_walking() {
+    let _guard = ENV_LOCK.lock().unwrap();
     let guard = init_ephemeral_repo();
     let (tmux, git) = e2e_ctx();
     let cli = e2e_cli(tmux, git);
     // Ensure no env-var shortcut
     unsafe { std::env::remove_var("TMUX_WORKTREES_ROOT") };
-    std::env::set_current_dir(guard.repo_path()).unwrap();
-    let root = cli.find_repo_root().unwrap();
+    let root = cli.find_repo_root_from(guard.repo_path()).unwrap();
     assert_eq!(root, guard.repo_path().to_string_lossy());
 }
 
 #[test]
 fn find_repo_root_from_subdirectory() {
+    let _guard = ENV_LOCK.lock().unwrap();
     let guard = init_ephemeral_repo();
     let subdir = guard.repo_path().join("src");
     std::fs::create_dir(&subdir).unwrap();
     let (tmux, git) = e2e_ctx();
     let cli = e2e_cli(tmux, git);
     unsafe { std::env::remove_var("TMUX_WORKTREES_ROOT") };
-    std::env::set_current_dir(&subdir).unwrap();
-    let found = cli.find_repo_root().unwrap();
+    let found = cli.find_repo_root_from(&subdir).unwrap();
     assert_eq!(found, guard.repo_path().to_string_lossy());
 }
 #[test]
 fn parse_args_strips_separate_root_flag() {
+    let _guard = ENV_LOCK.lock().unwrap();
     let (tmux, git) = e2e_ctx();
     let cli = e2e_cli(tmux, git);
     let (cmd, rest) = cli.parse_args(&[
@@ -235,6 +242,7 @@ fn parse_args_strips_separate_root_flag() {
     ]);
     assert_eq!(cmd, AppCommand::Choose);
     assert!(rest.is_empty());
+    unsafe { std::env::remove_var("TMUX_WORKTREES_ROOT") };
 }
 // resolve_default_branch
 

@@ -675,6 +675,7 @@ fn run_interactive_from_non_tty_uses_popup_path() {
     unsafe { std::env::set_var("TMUX_WORKTREES_ROOT", root.to_str().unwrap()) };
     cli.run(&["tmux-worktrees".to_string(), "choose".to_string()]);
     assert!(!guard.show_error_called.get());
+    unsafe { std::env::remove_var("TMUX_WORKTREES_ROOT") };
 }
 
 // ===========================================================================
