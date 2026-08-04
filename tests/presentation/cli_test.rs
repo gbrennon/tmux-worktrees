@@ -3,7 +3,7 @@
 
 use std::path::Path;
 
-use anyhow::Result;
+use tmux_worktrees::core::error::Result;
 use tmux_worktrees::core::ports::{GitPort, TmuxPort};
 use tmux_worktrees::presentation::cli::Cli;
 use tmux_worktrees::presentation::command::Command;
@@ -14,22 +14,46 @@ use tmux_worktrees::presentation::command::Command;
 
 struct StubTmx;
 impl TmuxPort for StubTmx {
-    fn show_error(&self, _msg: &str) -> Result<()> { unimplemented!() }
-    fn display_popup(&self, _w: &str, _h: &str, _d: &str, _c: &str) -> Result<()> { unimplemented!() }
-    fn resolve_workspace_dir(&self) -> String { unimplemented!() }
-    fn resolve_shell_command(&self) -> String { unimplemented!() }
-    fn select_or_create_window(&self, _n: &str, _p: &str, _c: &str) -> Result<()> { unimplemented!() }
-    fn get_option(&self, _k: &str) -> Option<String> { unimplemented!() }
-    fn show_environment(&self, _v: &str) -> Result<Option<String>> { unimplemented!() }
-    fn current_pane_path(&self) -> Result<String> { unimplemented!() }
-    fn run(&self, _a: &[&str]) -> Result<(i32, String, String)> { unimplemented!() }
-    fn kill_window(&self, _n: &str) -> Result<()> { unimplemented!() }
+    fn show_error(&self, _msg: &str) -> Result<()> {
+        unimplemented!()
+    }
+    fn display_popup(&self, _w: &str, _h: &str, _d: &str, _c: &str) -> Result<()> {
+        unimplemented!()
+    }
+    fn resolve_workspace_dir(&self) -> String {
+        unimplemented!()
+    }
+    fn resolve_shell_command(&self) -> String {
+        unimplemented!()
+    }
+    fn select_or_create_window(&self, _n: &str, _p: &str, _c: &str) -> Result<()> {
+        unimplemented!()
+    }
+    fn get_option(&self, _k: &str) -> Option<String> {
+        unimplemented!()
+    }
+    fn show_environment(&self, _v: &str) -> Result<Option<String>> {
+        unimplemented!()
+    }
+    fn current_pane_path(&self) -> Result<String> {
+        unimplemented!()
+    }
+    fn run(&self, _a: &[&str]) -> Result<(i32, String, String)> {
+        unimplemented!()
+    }
+    fn kill_window(&self, _n: &str) -> Result<()> {
+        unimplemented!()
+    }
 }
 
 struct StubGit;
 impl GitPort for StubGit {
-    fn run_in(&self, _d: &Path, _a: &[&str]) -> Result<(i32, String, String)> { unimplemented!() }
-    fn silent_in(&self, _d: &Path, _a: &[&str]) -> Result<()> { unimplemented!() }
+    fn run_in(&self, _d: &Path, _a: &[&str]) -> Result<(i32, String, String)> {
+        unimplemented!()
+    }
+    fn silent_in(&self, _d: &Path, _a: &[&str]) -> Result<()> {
+        unimplemented!()
+    }
 }
 
 // ===========================================================================
@@ -38,16 +62,36 @@ impl GitPort for StubGit {
 
 struct FakeTmxShowError;
 impl TmuxPort for FakeTmxShowError {
-    fn show_error(&self, _msg: &str) -> Result<()> { Ok(()) }
-    fn display_popup(&self, _w: &str, _h: &str, _d: &str, _c: &str) -> Result<()> { unimplemented!() }
-    fn resolve_workspace_dir(&self) -> String { unimplemented!() }
-    fn resolve_shell_command(&self) -> String { unimplemented!() }
-    fn select_or_create_window(&self, _n: &str, _p: &str, _c: &str) -> Result<()> { unimplemented!() }
-    fn get_option(&self, _k: &str) -> Option<String> { unimplemented!() }
-    fn show_environment(&self, _v: &str) -> Result<Option<String>> { unimplemented!() }
-    fn current_pane_path(&self) -> Result<String> { unimplemented!() }
-    fn run(&self, _a: &[&str]) -> Result<(i32, String, String)> { unimplemented!() }
-    fn kill_window(&self, _n: &str) -> Result<()> { unimplemented!() }
+    fn show_error(&self, _msg: &str) -> Result<()> {
+        Ok(())
+    }
+    fn display_popup(&self, _w: &str, _h: &str, _d: &str, _c: &str) -> Result<()> {
+        unimplemented!()
+    }
+    fn resolve_workspace_dir(&self) -> String {
+        unimplemented!()
+    }
+    fn resolve_shell_command(&self) -> String {
+        unimplemented!()
+    }
+    fn select_or_create_window(&self, _n: &str, _p: &str, _c: &str) -> Result<()> {
+        unimplemented!()
+    }
+    fn get_option(&self, _k: &str) -> Option<String> {
+        unimplemented!()
+    }
+    fn show_environment(&self, _v: &str) -> Result<Option<String>> {
+        unimplemented!()
+    }
+    fn current_pane_path(&self) -> Result<String> {
+        unimplemented!()
+    }
+    fn run(&self, _a: &[&str]) -> Result<(i32, String, String)> {
+        unimplemented!()
+    }
+    fn kill_window(&self, _n: &str) -> Result<()> {
+        unimplemented!()
+    }
 }
 
 // ===========================================================================
@@ -60,7 +104,11 @@ struct FakeTmxNonTty {
     show_error_called: std::rc::Rc<std::cell::Cell<bool>>,
 }
 impl FakeTmxNonTty {
-    fn new() -> Self { Self { show_error_called: std::rc::Rc::new(std::cell::Cell::new(false)) } }
+    fn new() -> Self {
+        Self {
+            show_error_called: std::rc::Rc::new(std::cell::Cell::new(false)),
+        }
+    }
 }
 impl TmuxPort for FakeTmxNonTty {
     fn display_popup(&self, _w: &str, _h: &str, _d: &str, _c: &str) -> Result<()> {
@@ -70,14 +118,30 @@ impl TmuxPort for FakeTmxNonTty {
         self.show_error_called.set(true);
         Ok(())
     }
-    fn resolve_workspace_dir(&self) -> String { unimplemented!() }
-    fn resolve_shell_command(&self) -> String { unimplemented!() }
-    fn select_or_create_window(&self, _n: &str, _p: &str, _c: &str) -> Result<()> { unimplemented!() }
-    fn get_option(&self, _k: &str) -> Option<String> { unimplemented!() }
-    fn show_environment(&self, _v: &str) -> Result<Option<String>> { unimplemented!() }
-    fn current_pane_path(&self) -> Result<String> { unimplemented!() }
-    fn run(&self, _a: &[&str]) -> Result<(i32, String, String)> { unimplemented!() }
-    fn kill_window(&self, _n: &str) -> Result<()> { unimplemented!() }
+    fn resolve_workspace_dir(&self) -> String {
+        unimplemented!()
+    }
+    fn resolve_shell_command(&self) -> String {
+        unimplemented!()
+    }
+    fn select_or_create_window(&self, _n: &str, _p: &str, _c: &str) -> Result<()> {
+        unimplemented!()
+    }
+    fn get_option(&self, _k: &str) -> Option<String> {
+        unimplemented!()
+    }
+    fn show_environment(&self, _v: &str) -> Result<Option<String>> {
+        unimplemented!()
+    }
+    fn current_pane_path(&self) -> Result<String> {
+        unimplemented!()
+    }
+    fn run(&self, _a: &[&str]) -> Result<(i32, String, String)> {
+        unimplemented!()
+    }
+    fn kill_window(&self, _n: &str) -> Result<()> {
+        unimplemented!()
+    }
 }
 
 // ===========================================================================
@@ -87,16 +151,36 @@ impl TmuxPort for FakeTmxNonTty {
 
 struct FakeTmxCreateSuccess;
 impl TmuxPort for FakeTmxCreateSuccess {
-    fn show_error(&self, _msg: &str) -> Result<()> { Ok(()) }
-    fn resolve_workspace_dir(&self) -> String { ".worktrees".into() }
-    fn resolve_shell_command(&self) -> String { "/bin/bash".into() }
-    fn select_or_create_window(&self, _n: &str, _p: &str, _c: &str) -> Result<()> { Ok(()) }
-    fn show_environment(&self, _v: &str) -> Result<Option<String>> { Ok(None) }
-    fn current_pane_path(&self) -> Result<String> { anyhow::bail!("no pane") }
-    fn display_popup(&self, _w: &str, _h: &str, _d: &str, _c: &str) -> Result<()> { unimplemented!() }
-    fn get_option(&self, _k: &str) -> Option<String> { unimplemented!() }
-    fn run(&self, _a: &[&str]) -> Result<(i32, String, String)> { unimplemented!() }
-    fn kill_window(&self, _n: &str) -> Result<()> { unimplemented!() }
+    fn show_error(&self, _msg: &str) -> Result<()> {
+        Ok(())
+    }
+    fn resolve_workspace_dir(&self) -> String {
+        ".worktrees".into()
+    }
+    fn resolve_shell_command(&self) -> String {
+        "/bin/bash".into()
+    }
+    fn select_or_create_window(&self, _n: &str, _p: &str, _c: &str) -> Result<()> {
+        Ok(())
+    }
+    fn show_environment(&self, _v: &str) -> Result<Option<String>> {
+        Ok(None)
+    }
+    fn current_pane_path(&self) -> Result<String> {
+        Err(tmux_worktrees::core::error::Error::new("no pane"))
+    }
+    fn display_popup(&self, _w: &str, _h: &str, _d: &str, _c: &str) -> Result<()> {
+        unimplemented!()
+    }
+    fn get_option(&self, _k: &str) -> Option<String> {
+        unimplemented!()
+    }
+    fn run(&self, _a: &[&str]) -> Result<(i32, String, String)> {
+        unimplemented!()
+    }
+    fn kill_window(&self, _n: &str) -> Result<()> {
+        unimplemented!()
+    }
 }
 
 // ===========================================================================
@@ -112,7 +196,9 @@ impl GitPort for FakeGitWorktreeAdd {
             Ok((0, String::new(), String::new()))
         }
     }
-    fn silent_in(&self, _d: &Path, _a: &[&str]) -> Result<()> { Ok(()) }
+    fn silent_in(&self, _d: &Path, _a: &[&str]) -> Result<()> {
+        Ok(())
+    }
 }
 
 // ===========================================================================
@@ -128,7 +214,9 @@ impl GitPort for FakeGitWorktreeFail {
             Ok((1, String::new(), "fail".into()))
         }
     }
-    fn silent_in(&self, _d: &Path, _a: &[&str]) -> Result<()> { Ok(()) }
+    fn silent_in(&self, _d: &Path, _a: &[&str]) -> Result<()> {
+        Ok(())
+    }
 }
 
 // ===========================================================================
@@ -144,7 +232,9 @@ impl GitPort for FakeGitWorktreeAddLocal {
             Ok((0, String::new(), String::new()))
         }
     }
-    fn silent_in(&self, _d: &Path, _a: &[&str]) -> Result<()> { Ok(()) }
+    fn silent_in(&self, _d: &Path, _a: &[&str]) -> Result<()> {
+        Ok(())
+    }
 }
 
 // ===========================================================================
@@ -159,7 +249,9 @@ impl GitPort for FakeGitWorktreeRemove {
             _ => unimplemented!(),
         }
     }
-    fn silent_in(&self, _d: &Path, _a: &[&str]) -> Result<()> { unimplemented!() }
+    fn silent_in(&self, _d: &Path, _a: &[&str]) -> Result<()> {
+        unimplemented!()
+    }
 }
 
 // ===========================================================================
@@ -174,7 +266,9 @@ impl GitPort for FakeGitWorktreeRemoveFail {
             _ => unimplemented!(),
         }
     }
-    fn silent_in(&self, _d: &Path, _a: &[&str]) -> Result<()> { unimplemented!() }
+    fn silent_in(&self, _d: &Path, _a: &[&str]) -> Result<()> {
+        unimplemented!()
+    }
 }
 
 // ===========================================================================
@@ -185,9 +279,7 @@ struct FakeTmxWithWindow;
 impl TmuxPort for FakeTmxWithWindow {
     fn run(&self, args: &[&str]) -> Result<(i32, String, String)> {
         match args {
-            ["list-windows", "-F", "{window_name}"] => {
-                Ok((0, "ws-feat/x\n".into(), String::new()))
-            }
+            ["list-windows", "-F", "{window_name}"] => Ok((0, "ws-feat/x\n".into(), String::new())),
             ["kill-window", "-t", _] => Ok((0, String::new(), String::new())),
             _ => unimplemented!(),
         }
@@ -200,14 +292,30 @@ impl TmuxPort for FakeTmxWithWindow {
         }
         Ok(())
     }
-    fn show_error(&self, _msg: &str) -> Result<()> { unimplemented!() }
-    fn display_popup(&self, _w: &str, _h: &str, _d: &str, _c: &str) -> Result<()> { unimplemented!() }
-    fn resolve_workspace_dir(&self) -> String { unimplemented!() }
-    fn resolve_shell_command(&self) -> String { unimplemented!() }
-    fn select_or_create_window(&self, _n: &str, _p: &str, _c: &str) -> Result<()> { unimplemented!() }
-    fn get_option(&self, _k: &str) -> Option<String> { unimplemented!() }
-    fn show_environment(&self, _v: &str) -> Result<Option<String>> { unimplemented!() }
-    fn current_pane_path(&self) -> Result<String> { unimplemented!() }
+    fn show_error(&self, _msg: &str) -> Result<()> {
+        unimplemented!()
+    }
+    fn display_popup(&self, _w: &str, _h: &str, _d: &str, _c: &str) -> Result<()> {
+        unimplemented!()
+    }
+    fn resolve_workspace_dir(&self) -> String {
+        unimplemented!()
+    }
+    fn resolve_shell_command(&self) -> String {
+        unimplemented!()
+    }
+    fn select_or_create_window(&self, _n: &str, _p: &str, _c: &str) -> Result<()> {
+        unimplemented!()
+    }
+    fn get_option(&self, _k: &str) -> Option<String> {
+        unimplemented!()
+    }
+    fn show_environment(&self, _v: &str) -> Result<Option<String>> {
+        unimplemented!()
+    }
+    fn current_pane_path(&self) -> Result<String> {
+        unimplemented!()
+    }
 }
 
 // ===========================================================================
@@ -233,14 +341,30 @@ impl TmuxPort for FakeTmxNoWindow {
         }
         Ok(())
     }
-    fn show_error(&self, _msg: &str) -> Result<()> { unimplemented!() }
-    fn display_popup(&self, _w: &str, _h: &str, _d: &str, _c: &str) -> Result<()> { unimplemented!() }
-    fn resolve_workspace_dir(&self) -> String { unimplemented!() }
-    fn resolve_shell_command(&self) -> String { unimplemented!() }
-    fn select_or_create_window(&self, _n: &str, _p: &str, _c: &str) -> Result<()> { unimplemented!() }
-    fn get_option(&self, _k: &str) -> Option<String> { unimplemented!() }
-    fn show_environment(&self, _v: &str) -> Result<Option<String>> { unimplemented!() }
-    fn current_pane_path(&self) -> Result<String> { unimplemented!() }
+    fn show_error(&self, _msg: &str) -> Result<()> {
+        unimplemented!()
+    }
+    fn display_popup(&self, _w: &str, _h: &str, _d: &str, _c: &str) -> Result<()> {
+        unimplemented!()
+    }
+    fn resolve_workspace_dir(&self) -> String {
+        unimplemented!()
+    }
+    fn resolve_shell_command(&self) -> String {
+        unimplemented!()
+    }
+    fn select_or_create_window(&self, _n: &str, _p: &str, _c: &str) -> Result<()> {
+        unimplemented!()
+    }
+    fn get_option(&self, _k: &str) -> Option<String> {
+        unimplemented!()
+    }
+    fn show_environment(&self, _v: &str) -> Result<Option<String>> {
+        unimplemented!()
+    }
+    fn current_pane_path(&self) -> Result<String> {
+        unimplemented!()
+    }
 }
 
 // ===========================================================================
@@ -255,7 +379,9 @@ impl GitPort for FakeGitRevParseFail {
             _ => unimplemented!(),
         }
     }
-    fn silent_in(&self, _d: &Path, _a: &[&str]) -> Result<()> { unimplemented!() }
+    fn silent_in(&self, _d: &Path, _a: &[&str]) -> Result<()> {
+        unimplemented!()
+    }
 }
 
 // ===========================================================================
@@ -270,7 +396,9 @@ impl GitPort for FakeGitRevParseOk {
             _ => unimplemented!(),
         }
     }
-    fn silent_in(&self, _d: &Path, _a: &[&str]) -> Result<()> { unimplemented!() }
+    fn silent_in(&self, _d: &Path, _a: &[&str]) -> Result<()> {
+        unimplemented!()
+    }
 }
 
 // ===========================================================================
@@ -285,7 +413,9 @@ impl GitPort for FakeGitRevParseDetached {
             _ => unimplemented!(),
         }
     }
-    fn silent_in(&self, _d: &Path, _a: &[&str]) -> Result<()> { unimplemented!() }
+    fn silent_in(&self, _d: &Path, _a: &[&str]) -> Result<()> {
+        unimplemented!()
+    }
 }
 
 // ===========================================================================
@@ -300,7 +430,9 @@ impl GitPort for FakeGitWorktreeListFail {
             _ => unimplemented!(),
         }
     }
-    fn silent_in(&self, _d: &Path, _a: &[&str]) -> Result<()> { unimplemented!() }
+    fn silent_in(&self, _d: &Path, _a: &[&str]) -> Result<()> {
+        unimplemented!()
+    }
 }
 
 // ===========================================================================
@@ -317,7 +449,9 @@ impl GitPort for FakeGitWorktreeListOk {
             _ => unimplemented!(),
         }
     }
-    fn silent_in(&self, _d: &Path, _a: &[&str]) -> Result<()> { unimplemented!() }
+    fn silent_in(&self, _d: &Path, _a: &[&str]) -> Result<()> {
+        unimplemented!()
+    }
 }
 
 // ===========================================================================
@@ -334,7 +468,9 @@ impl GitPort for FakeGitDefaultBranch {
             _ => unimplemented!(),
         }
     }
-    fn silent_in(&self, _d: &Path, _a: &[&str]) -> Result<()> { unimplemented!() }
+    fn silent_in(&self, _d: &Path, _a: &[&str]) -> Result<()> {
+        unimplemented!()
+    }
 }
 
 // ===========================================================================
@@ -351,7 +487,9 @@ impl GitPort for FakeGitBranchLocalOnly {
             _ => unimplemented!(),
         }
     }
-    fn silent_in(&self, _d: &Path, _a: &[&str]) -> Result<()> { unimplemented!() }
+    fn silent_in(&self, _d: &Path, _a: &[&str]) -> Result<()> {
+        unimplemented!()
+    }
 }
 
 // ===========================================================================
@@ -368,7 +506,9 @@ impl GitPort for FakeGitBranchFallbackCurrent {
             _ => unimplemented!(),
         }
     }
-    fn silent_in(&self, _d: &Path, _a: &[&str]) -> Result<()> { unimplemented!() }
+    fn silent_in(&self, _d: &Path, _a: &[&str]) -> Result<()> {
+        unimplemented!()
+    }
 }
 
 // ===========================================================================
@@ -377,8 +517,12 @@ impl GitPort for FakeGitBranchFallbackCurrent {
 
 struct FakeGitBranchDelete;
 impl GitPort for FakeGitBranchDelete {
-    fn run_in(&self, _d: &Path, _a: &[&str]) -> Result<(i32, String, String)> { unimplemented!() }
-    fn silent_in(&self, _d: &Path, _args: &[&str]) -> Result<()> { Ok(()) }
+    fn run_in(&self, _d: &Path, _a: &[&str]) -> Result<(i32, String, String)> {
+        unimplemented!()
+    }
+    fn silent_in(&self, _d: &Path, _args: &[&str]) -> Result<()> {
+        Ok(())
+    }
 }
 
 // ===========================================================================
@@ -390,22 +534,44 @@ struct FakeTmxPopupOk {
     display_called: std::rc::Rc<std::cell::Cell<bool>>,
 }
 impl FakeTmxPopupOk {
-    fn new() -> Self { Self { display_called: std::rc::Rc::new(std::cell::Cell::new(false)) } }
+    fn new() -> Self {
+        Self {
+            display_called: std::rc::Rc::new(std::cell::Cell::new(false)),
+        }
+    }
 }
 impl TmuxPort for FakeTmxPopupOk {
     fn display_popup(&self, _w: &str, _h: &str, _d: &str, _c: &str) -> Result<()> {
         self.display_called.set(true);
         Ok(())
     }
-    fn show_environment(&self, _v: &str) -> Result<Option<String>> { Ok(None) }
-    fn current_pane_path(&self) -> Result<String> { anyhow::bail!("no pane") }
-    fn show_error(&self, _msg: &str) -> Result<()> { unimplemented!() }
-    fn resolve_workspace_dir(&self) -> String { unimplemented!() }
-    fn resolve_shell_command(&self) -> String { unimplemented!() }
-    fn select_or_create_window(&self, _n: &str, _p: &str, _c: &str) -> Result<()> { unimplemented!() }
-    fn get_option(&self, _k: &str) -> Option<String> { unimplemented!() }
-    fn run(&self, _a: &[&str]) -> Result<(i32, String, String)> { unimplemented!() }
-    fn kill_window(&self, _n: &str) -> Result<()> { unimplemented!() }
+    fn show_environment(&self, _v: &str) -> Result<Option<String>> {
+        Ok(None)
+    }
+    fn current_pane_path(&self) -> Result<String> {
+        Err(tmux_worktrees::core::error::Error::new("no pane"))
+    }
+    fn show_error(&self, _msg: &str) -> Result<()> {
+        unimplemented!()
+    }
+    fn resolve_workspace_dir(&self) -> String {
+        unimplemented!()
+    }
+    fn resolve_shell_command(&self) -> String {
+        unimplemented!()
+    }
+    fn select_or_create_window(&self, _n: &str, _p: &str, _c: &str) -> Result<()> {
+        unimplemented!()
+    }
+    fn get_option(&self, _k: &str) -> Option<String> {
+        unimplemented!()
+    }
+    fn run(&self, _a: &[&str]) -> Result<(i32, String, String)> {
+        unimplemented!()
+    }
+    fn kill_window(&self, _n: &str) -> Result<()> {
+        unimplemented!()
+    }
 }
 
 // ===========================================================================
@@ -497,10 +663,7 @@ fn dispatch_create_worktree_empty_branch_shows_error() {
 #[test]
 fn run_create_worktree_empty_branch_does_not_panic() {
     let cli = cli_with(FakeTmxShowError, StubGit);
-    cli.run(&[
-        "tmux-worktrees".to_string(),
-        "create-worktree".to_string(),
-    ]);
+    cli.run(&["tmux-worktrees".to_string(), "create-worktree".to_string()]);
 }
 
 #[test]
@@ -759,24 +922,46 @@ struct FakeTmxWindowFail {
     show_error_called: std::rc::Rc<std::cell::Cell<bool>>,
 }
 impl FakeTmxWindowFail {
-    fn new() -> Self { Self { show_error_called: std::rc::Rc::new(std::cell::Cell::new(false)) } }
+    fn new() -> Self {
+        Self {
+            show_error_called: std::rc::Rc::new(std::cell::Cell::new(false)),
+        }
+    }
 }
 impl TmuxPort for FakeTmxWindowFail {
     fn show_error(&self, _msg: &str) -> Result<()> {
         self.show_error_called.set(true);
         Ok(())
     }
-    fn resolve_workspace_dir(&self) -> String { ".worktrees".into() }
-    fn resolve_shell_command(&self) -> String { "/bin/bash".into() }
-    fn select_or_create_window(&self, _n: &str, _p: &str, _c: &str) -> Result<()> {
-        anyhow::bail!("window creation failed")
+    fn resolve_workspace_dir(&self) -> String {
+        ".worktrees".into()
     }
-    fn show_environment(&self, _v: &str) -> Result<Option<String>> { Ok(None) }
-    fn current_pane_path(&self) -> Result<String> { anyhow::bail!("no pane") }
-    fn display_popup(&self, _w: &str, _h: &str, _d: &str, _c: &str) -> Result<()> { unimplemented!() }
-    fn get_option(&self, _k: &str) -> Option<String> { unimplemented!() }
-    fn run(&self, _a: &[&str]) -> Result<(i32, String, String)> { unimplemented!() }
-    fn kill_window(&self, _n: &str) -> Result<()> { unimplemented!() }
+    fn resolve_shell_command(&self) -> String {
+        "/bin/bash".into()
+    }
+    fn select_or_create_window(&self, _n: &str, _p: &str, _c: &str) -> Result<()> {
+        Err(tmux_worktrees::core::error::Error::new(
+            "window creation failed",
+        ))
+    }
+    fn show_environment(&self, _v: &str) -> Result<Option<String>> {
+        Ok(None)
+    }
+    fn current_pane_path(&self) -> Result<String> {
+        Err(tmux_worktrees::core::error::Error::new("no pane"))
+    }
+    fn display_popup(&self, _w: &str, _h: &str, _d: &str, _c: &str) -> Result<()> {
+        unimplemented!()
+    }
+    fn get_option(&self, _k: &str) -> Option<String> {
+        unimplemented!()
+    }
+    fn run(&self, _a: &[&str]) -> Result<(i32, String, String)> {
+        unimplemented!()
+    }
+    fn kill_window(&self, _n: &str) -> Result<()> {
+        unimplemented!()
+    }
 }
 
 // ===========================================================================
@@ -804,7 +989,10 @@ fn run_error_path_shows_error_when_dispatch_fails() {
         "create-worktree".into(),
         "test-branch".into(),
     ]);
-    assert!(show_error_called.get(), "show_error was not called on dispatch failure");
+    assert!(
+        show_error_called.get(),
+        "show_error was not called on dispatch failure"
+    );
 }
 // ===========================================================================
 // run_create error path — create_workspace fails → show_error
@@ -816,6 +1004,12 @@ fn run_create_shows_error_when_workspace_creation_fails() {
     let show_error_called = fake_tmux.show_error_called.clone();
     let cli = cli_with(fake_tmux, FakeGitWorktreeFail);
     let result = cli.run_create("new-feature");
-    assert!(result.is_ok(), "run_create should return Ok even on failure");
-    assert!(show_error_called.get(), "show_error should be called when create_workspace fails");
+    assert!(
+        result.is_ok(),
+        "run_create should return Ok even on failure"
+    );
+    assert!(
+        show_error_called.get(),
+        "show_error should be called when create_workspace fails"
+    );
 }
