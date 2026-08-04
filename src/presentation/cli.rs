@@ -1,5 +1,5 @@
 use crate::core::error::Result;
-use fuzzy_matcher::{FuzzyMatcher, clangd::ClangdMatcher};
+use crate::presentation::selector_port::SelectorRunner;
 use std::io::IsTerminal;
 use std::path::Path;
 
@@ -17,11 +17,20 @@ use crate::core::{
 pub struct Cli {
     tmux: Box<dyn TmuxPort>,
     git: Box<dyn GitPort>,
+    selector: Box<dyn SelectorRunner>,
 }
 
 impl Cli {
-    pub fn new(tmux: Box<dyn TmuxPort>, git: Box<dyn GitPort>) -> Self {
-        Self { tmux, git }
+    pub fn new(
+        tmux: Box<dyn TmuxPort>,
+        git: Box<dyn GitPort>,
+        selector: Box<dyn SelectorRunner>,
+    ) -> Self {
+        Self {
+            tmux,
+            git,
+            selector,
+        }
     }
 
     /// Entry point: parse the command-line and dispatch.
@@ -121,7 +130,9 @@ impl Cli {
         };
         let mut selector = Selector::new(existing.clone(), true);
         let filtered = selector.filter("");
-        let picked = run_selector(&mut selector, &filtered, "Workspace> ", header)?;
+        let picked = self
+            .selector
+            .run_selector(&mut selector, &filtered, "Workspace> ", header)?;
         let branch = match picked {
             SelectionResult::Selected(i) => existing[i].clone(),
             SelectionResult::Custom(q) => q,
@@ -221,7 +232,7 @@ impl Cli {
         let items_clone = items.clone();
         let mut selector = Selector::new(items, false);
         let filtered = selector.filter("");
-        let picked = run_selector(
+        let picked = self.selector.run_selector(
             &mut selector,
             &filtered,
             "Remove workspace> ",
@@ -408,105 +419,4 @@ impl Cli {
     pub fn delete_branch(&self, repo_root: &Path, branch: &str) {
         let _ = self.git.silent_in(repo_root, &["branch", "-D", branch]);
     }
-}
-
-fn run_selector(
-    selector: &mut Selector,
-    _filtered: &[usize],
-    prompt: &str,
-    header: &str,
-) -> Result<SelectionResult> {
-    use ratatui::{
-        layout::{Constraint, Direction, Layout},
-        style::{Color, Style},
-        widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
-    };
-    let mut terminal = setup_terminal()?;
-    terminal
-        .clear()
-        .map_err(|e| crate::core::error::Error::new(format!("Failed to clear terminal: {}", e)))?;
-    let matcher = ClangdMatcher::default();
-
-    let result = loop {
-        let filtered: Vec<usize> = selector
-            .items()
-            .iter()
-            .enumerate()
-            .filter_map(|(i, s)| {
-                if selector.query().is_empty() {
-                    Some(i)
-                } else {
-                    matcher.fuzzy_match(s, selector.query()).map(|_| i)
-                }
-            })
-            .collect();
-
-        selector.clamp_selection(filtered.len());
-
-        terminal
-            .draw(|f| {
-                let area = f.size();
-                let chunks = Layout::default()
-                    .direction(Direction::Vertical)
-                    .constraints([
-                        Constraint::Length(3),
-                        Constraint::Length(1),
-                        Constraint::Min(0),
-                    ])
-                    .split(area);
-                let input = Paragraph::new(format!("{prompt}{}", selector.query()))
-                    .block(Block::default().borders(Borders::ALL));
-                let hint = Paragraph::new(header).style(Style::default().fg(Color::DarkGray));
-                f.render_widget(input, chunks[0]);
-                f.render_widget(hint, chunks[1]);
-
-                let list_items: Vec<ListItem> = filtered
-                    .iter()
-                    .map(|&i| ListItem::new(selector.items()[i].as_str()))
-                    .collect();
-                let mut ls = ListState::default();
-                ls.select(Some(selector.selected_index()));
-                let list = List::new(list_items)
-                    .block(Block::default().borders(Borders::ALL))
-                    .highlight_symbol("> ")
-                    .highlight_style(Style::default().fg(Color::Yellow));
-                f.render_stateful_widget(list, chunks[2], &mut ls);
-            })
-            .map_err(|e| {
-                crate::core::error::Error::new(format!("Failed to draw terminal: {}", e))
-            })?;
-
-        if let crossterm::event::Event::Key(k) = crossterm::event::read().map_err(|e| {
-            crate::core::error::Error::new(format!("Failed to read key event: {}", e))
-        })? && let Some(result) = selector.process_key((k.code, k.modifiers), &filtered)
-        {
-            break result;
-        }
-    };
-
-    restore_terminal(&mut terminal)?;
-    Ok(result)
-}
-
-fn setup_terminal() -> Result<ratatui::Terminal<ratatui::backend::CrosstermBackend<std::io::Stdout>>>
-{
-    use std::io::stdout;
-    crossterm::terminal::enable_raw_mode()?;
-    crossterm::execute!(stdout(), crossterm::terminal::EnterAlternateScreen)?;
-    let backend = ratatui::backend::CrosstermBackend::new(stdout());
-    ratatui::Terminal::new(backend).map_err(|e| {
-        crate::core::error::Error::new(format!("Failed to initialize terminal: {}", e))
-    })
-}
-
-fn restore_terminal(
-    terminal: &mut ratatui::Terminal<ratatui::backend::CrosstermBackend<std::io::Stdout>>,
-) -> Result<()> {
-    crossterm::terminal::disable_raw_mode()?;
-    crossterm::execute!(
-        terminal.backend_mut(),
-        crossterm::terminal::LeaveAlternateScreen
-    )?;
-    terminal.show_cursor()?;
-    Ok(())
 }
