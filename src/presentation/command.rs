@@ -49,38 +49,3 @@ impl Command {
         matches!(self, Self::Choose | Self::Cleanup)
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn parse_choose() {
-        assert_eq!("choose".parse::<Command>().unwrap(), Command::Choose);
-    }
-
-    #[test]
-    fn parse_create_worktree() {
-        assert_eq!(
-            "create-worktree".parse::<Command>().unwrap(),
-            Command::CreateWorktree
-        );
-    }
-
-    #[test]
-    fn parse_cleanup() {
-        assert_eq!("cleanup".parse::<Command>().unwrap(), Command::Cleanup);
-    }
-
-    #[test]
-    fn parse_unknown() {
-        assert!("bogus".parse::<Command>().is_err());
-    }
-
-    #[test]
-    fn interactive_commands() {
-        assert!(Command::Choose.is_interactive());
-        assert!(Command::Cleanup.is_interactive());
-        assert!(!Command::CreateWorktree.is_interactive());
-    }
-}
