@@ -4,15 +4,45 @@ pub struct ProjectLocator;
 
 impl ProjectLocator {
     pub fn from_env() -> Option<String> {
-        find_project_root_from_env()
+        if let Ok(root) = std::env::var("TMUX_WORKTREES_ROOT") {
+            let root = root.trim().to_string();
+            if !root.is_empty() && Path::new(&root).join(".git").is_dir() {
+                return Some(root);
+            }
+        }
+        None
     }
 
     pub fn by_walking(&self, start: &Path) -> Option<String> {
-        find_project_root_by_walking(start)
+        let mut dir = start.to_path_buf();
+        loop {
+            if dir.join(".git").is_dir() {
+                return Some(dir.to_string_lossy().into_owned());
+            }
+            match dir.parent() {
+                Some(parent) if parent.as_os_str() != dir.as_os_str() => {
+                    dir = parent.to_path_buf();
+                }
+                _ => break,
+            }
+        }
+        if Path::new("/.git").is_dir() {
+            return Some("/".to_string());
+        }
+        None
     }
 
     pub fn determine_default_branch(&self, global: &str, local: &str, current: &str) -> String {
-        determine_default_branch(global, local, current)
+        if !global.is_empty() {
+            return global.to_string();
+        }
+        if !local.is_empty() {
+            return local.to_string();
+        }
+        if !current.is_empty() {
+            return current.to_string();
+        }
+        "main".to_string()
     }
 
     pub fn ensure_workspace_directory(
@@ -20,72 +50,23 @@ impl ProjectLocator {
         project_root: &Path,
         workspace_dir: &str,
     ) -> crate::core::error::Result<()> {
-        ensure_workspace_directory_exists(project_root, workspace_dir)
-    }
-}
-
-fn find_project_root_from_env() -> Option<String> {
-    if let Ok(root) = std::env::var("TMUX_WORKTREES_ROOT") {
-        let root = root.trim().to_string();
-        if !root.is_empty() && Path::new(&root).join(".git").is_dir() {
-            return Some(root);
-        }
-    }
-    None
-}
-
-fn find_project_root_by_walking(start: &Path) -> Option<String> {
-    let mut dir = start.to_path_buf();
-    loop {
-        if dir.join(".git").is_dir() {
-            return Some(dir.to_string_lossy().into_owned());
-        }
-        match dir.parent() {
-            Some(parent) if parent.as_os_str() != dir.as_os_str() => {
-                dir = parent.to_path_buf();
-            }
-            _ => break,
-        }
-    }
-    if Path::new("/.git").is_dir() {
-        return Some("/".to_string());
-    }
-    None
-}
-
-fn determine_default_branch(global: &str, local: &str, current: &str) -> String {
-    if !global.is_empty() {
-        return global.to_string();
-    }
-    if !local.is_empty() {
-        return local.to_string();
-    }
-    if !current.is_empty() {
-        return current.to_string();
-    }
-    "main".to_string()
-}
-
-fn ensure_workspace_directory_exists(
-    project_root: &Path,
-    workspace_dir: &str,
-) -> crate::core::error::Result<()> {
-    let dir = project_root.join(workspace_dir);
-    if !dir.is_dir() {
-        std::fs::create_dir(&dir)?;
-        let exclude = project_root.join(".git").join("info").join("exclude");
-        if exclude.exists() {
-            let content = std::fs::read_to_string(&exclude).unwrap_or_default();
-            let line = format!("{workspace_dir}/");
-            if !content.lines().any(|l| l.trim_end() == line)
-                && let Ok(mut f) = std::fs::OpenOptions::new().append(true).open(&exclude)
-            {
-                use std::io::Write;
-                let _ = f.write_all(format!("\n{line}\n").as_bytes());
+        let dir = project_root.join(workspace_dir);
+        if !dir.is_dir() {
+            std::fs::create_dir(&dir)?;
+            let exclude = project_root.join(".git").join("info").join("exclude");
+            if exclude.exists() {
+                let content = std::fs::read_to_string(&exclude).unwrap_or_default();
+                let line = format!("{workspace_dir}/");
+                if !content.lines().any(|l| l.trim_end() == line)
+                    && let Ok(mut f) = std::fs::OpenOptions::new().append(true).open(&exclude)
+                {
+                    use std::io::Write;
+                    let _ = f.write_all(format!("\n{line}\n").as_bytes());
+                }
             }
         }
+        Ok(())
     }
-    Ok(())
 }
 
 #[cfg(test)]
