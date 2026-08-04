@@ -119,10 +119,10 @@ impl TmuxPort for FakeTmxNonTty {
         Ok(())
     }
     fn resolve_workspace_dir(&self) -> String {
-        unimplemented!()
+        ".".to_string()
     }
     fn resolve_shell_command(&self) -> String {
-        unimplemented!()
+        "/bin/sh".to_string()
     }
     fn select_or_create_window(&self, _n: &str, _p: &str, _c: &str) -> Result<()> {
         unimplemented!()

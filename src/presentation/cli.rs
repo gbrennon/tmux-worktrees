@@ -87,9 +87,11 @@ impl Cli {
                 return Ok(());
             }
         };
-        let exe = std::env::current_exe().map_err(|e| {
-            crate::core::error::Error::new(format!("Failed to resolve current executable: {}", e))
-        })?;
+        let exe = std::env::current_exe().unwrap_or_else(|_| {
+            args.first()
+                .map(std::path::PathBuf::from)
+                .unwrap_or_else(|| std::path::PathBuf::from("tmux-worktrees"))
+        });
         let mut cmd = crate::utils::ShellQuoter::quote(&exe.to_string_lossy());
         for a in args.iter().skip(1) {
             if a.starts_with("--root") {
