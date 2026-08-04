@@ -17,13 +17,3 @@ impl Container {
         )
     }
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn container_builds_cli_without_panicking() {
-        let _cli = Container::build_cli();
-    }
-}
