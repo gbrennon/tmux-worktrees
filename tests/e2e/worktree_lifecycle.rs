@@ -85,7 +85,11 @@ fn e2e_ctx() -> (TmuxExecutor, GitExecutor) {
 }
 
 fn e2e_cli(tmux: TmuxExecutor, git: GitExecutor) -> Cli {
-    Cli::new(Box::new(tmux), Box::new(git))
+    Cli::new(
+        Box::new(tmux),
+        Box::new(git),
+        Box::new(tmux_worktrees::presentation::ratatui_selector::RatatuiSelector),
+    )
 }
 
 // Ephemeral repo helpers
