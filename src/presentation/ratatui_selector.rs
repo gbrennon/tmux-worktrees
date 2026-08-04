@@ -1,23 +1,70 @@
 use fuzzy_matcher::{FuzzyMatcher, clangd::ClangdMatcher};
 use ratatui::{
+    Frame, Terminal,
+    backend::{Backend, CrosstermBackend},
     layout::{Constraint, Direction, Layout},
     style::{Color, Style},
     widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
 };
 
-use crate::core::error::{Error, Result};
-use crate::core::selector::{SelectionResult, Selector};
-use crate::presentation::selector_port::SelectorRunner;
+impl From<crossterm::event::KeyEvent> for Key {
+    fn from(event: crossterm::event::KeyEvent) -> Self {
+        use crossterm::event::{KeyCode, KeyModifiers};
+        match event {
+            crossterm::event::KeyEvent {
+                code: KeyCode::Char(c),
+                modifiers: m,
+                ..
+            } if m.contains(KeyModifiers::CONTROL) => match c {
+                'c' => Key::CtrlC,
+                'u' => Key::CtrlU,
+                _ => Key::Unknown,
+            },
+            crossterm::event::KeyEvent {
+                code: KeyCode::Char(c),
+                modifiers: _,
+                ..
+            } => Key::Char(c),
+            crossterm::event::KeyEvent {
+                code: KeyCode::Backspace,
+                ..
+            } => Key::Backspace,
+            crossterm::event::KeyEvent {
+                code: KeyCode::Down,
+                ..
+            } => Key::Down,
+            crossterm::event::KeyEvent {
+                code: KeyCode::Up, ..
+            } => Key::Up,
+            crossterm::event::KeyEvent {
+                code: KeyCode::Esc, ..
+            } => Key::Esc,
+            crossterm::event::KeyEvent {
+                code: KeyCode::Enter,
+                ..
+            } => Key::Enter,
+            _ => Key::Unknown,
+        }
+    }
+}
+
+#[cfg(test)]
+use ratatui::backend::TestBackend;
+
+use crate::{
+    core::{
+        error::{Error, Result},
+        selector::{Key, SelectionResult, Selector},
+    },
+    presentation::selector_port::SelectorRunner,
+};
 
 trait TerminalBackend {
-    type Term: ratatui::backend::Backend;
+    type Term: Backend;
 
-    fn setup() -> Result<ratatui::Terminal<Self::Term>>;
+    fn setup() -> Result<Terminal<Self::Term>>;
 
-    fn draw_frame(
-        terminal: &mut ratatui::Terminal<Self::Term>,
-        f: impl FnOnce(&mut ratatui::Frame),
-    ) -> Result<()> {
+    fn draw_frame(terminal: &mut Terminal<Self::Term>, f: impl FnOnce(&mut Frame)) -> Result<()> {
         terminal
             .draw(f)
             .map(|_| ())
@@ -26,20 +73,20 @@ trait TerminalBackend {
 
     fn read_event() -> Result<crossterm::event::Event>;
 
-    fn restore(terminal: &mut ratatui::Terminal<Self::Term>) -> Result<()>;
+    fn restore(terminal: &mut Terminal<Self::Term>) -> Result<()>;
 }
 
 struct RealTerminal;
 
 impl TerminalBackend for RealTerminal {
-    type Term = ratatui::backend::CrosstermBackend<std::io::Stdout>;
+    type Term = CrosstermBackend<std::io::Stdout>;
 
-    fn setup() -> Result<ratatui::Terminal<Self::Term>> {
+    fn setup() -> Result<Terminal<Self::Term>> {
         use std::io::stdout;
         crossterm::terminal::enable_raw_mode()?;
         crossterm::execute!(stdout(), crossterm::terminal::EnterAlternateScreen)?;
         let backend = ratatui::backend::CrosstermBackend::new(stdout());
-        ratatui::Terminal::new(backend)
+        Terminal::new(backend)
             .map_err(|e| Error::new(format!("Failed to initialize terminal: {}", e)))
     }
 
@@ -47,7 +94,7 @@ impl TerminalBackend for RealTerminal {
         crossterm::event::read().map_err(|e| Error::new(format!("Failed to read key event: {}", e)))
     }
 
-    fn restore(terminal: &mut ratatui::Terminal<Self::Term>) -> Result<()> {
+    fn restore(terminal: &mut Terminal<Self::Term>) -> Result<()> {
         crossterm::terminal::disable_raw_mode()?;
         crossterm::execute!(std::io::stdout(), crossterm::terminal::LeaveAlternateScreen)?;
         terminal.show_cursor()?;
@@ -116,7 +163,7 @@ impl RatatuiSelector {
             })?;
 
             if let crossterm::event::Event::Key(k) = B::read_event()?
-                && let Some(result) = selector.process_key((k.code, k.modifiers), &filtered)
+                && let Some(result) = selector.process_key(Key::from(k), &filtered)
             {
                 break result;
             }
@@ -239,20 +286,20 @@ mod tests {
     struct FakeTerminal;
 
     impl TerminalBackend for FakeTerminal {
-        type Term = ratatui::backend::TestBackend;
+        type Term = TestBackend;
 
-        fn setup() -> Result<ratatui::Terminal<Self::Term>> {
+        fn setup() -> Result<Terminal<Self::Term>> {
             if SETUP_FAILS.with(|f| *f.borrow()) {
                 return Err(Error::new("Simulated setup failure"));
             }
-            let backend = ratatui::backend::TestBackend::new(80, 24);
-            ratatui::Terminal::new(backend)
+            let backend = TestBackend::new(80, 24);
+            Terminal::new(backend)
                 .map_err(|e| Error::new(format!("Failed to initialize terminal: {}", e)))
         }
 
         fn draw_frame(
-            terminal: &mut ratatui::Terminal<Self::Term>,
-            f: impl FnOnce(&mut ratatui::Frame),
+            terminal: &mut Terminal<Self::Term>,
+            f: impl FnOnce(&mut Frame),
         ) -> Result<()> {
             if DRAW_FAILS.with(|d| *d.borrow()) {
                 return Err(Error::new("Simulated draw failure"));
@@ -275,7 +322,7 @@ mod tests {
             })
         }
 
-        fn restore(_terminal: &mut ratatui::Terminal<Self::Term>) -> Result<()> {
+        fn restore(_terminal: &mut Terminal<Self::Term>) -> Result<()> {
             if RESTORE_FAILS.with(|r| *r.borrow()) {
                 return Err(Error::new("Simulated restore failure"));
             }
