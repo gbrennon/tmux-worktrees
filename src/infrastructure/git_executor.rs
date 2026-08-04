@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use crate::core::error::Result;
 use std::path::Path;
 
 use crate::core::ports::GitPort;
@@ -26,10 +26,9 @@ impl GitExecutor {
     }
 
     pub fn run_in(&self, cwd: &Path, args: &[&str]) -> Result<(i32, String, String)> {
-        let out = self
-            .runner
-            .run("git", args, Some(cwd))
-            .context("Failed to run git command")?;
+        let out = self.runner.run("git", args, Some(cwd)).map_err(|e| {
+            crate::core::error::Error::new(format!("Failed to run git command: {}", e))
+        })?;
         Ok((
             out.status.code().unwrap_or(1),
             String::from_utf8_lossy(&out.stdout).trim().to_string(),

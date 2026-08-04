@@ -1,4 +1,4 @@
-use anyhow::{Context, Result};
+use crate::core::error::Result;
 
 use crate::core::ports::TmuxPort;
 
@@ -26,10 +26,9 @@ impl TmuxExecutor {
     }
 
     pub fn run(&self, args: &[&str]) -> Result<(i32, String, String)> {
-        let out = self
-            .runner
-            .run("tmux", args, None)
-            .context("Failed to run tmux command")?;
+        let out = self.runner.run("tmux", args, None).map_err(|e| {
+            crate::core::error::Error::new(format!("Failed to run tmux command: {}", e))
+        })?;
         Ok((
             out.status.code().unwrap_or(1),
             String::from_utf8_lossy(&out.stdout).trim().to_string(),
@@ -149,7 +148,7 @@ impl TmuxExecutor {
             Ok((0, out, _)) => Ok(out.trim().to_string()),
             _ => std::env::current_dir()
                 .map(|p| p.to_string_lossy().into_owned())
-                .map_err(|e| anyhow::anyhow!(e)),
+                .map_err(|e| crate::core::error::Error::new(e.to_string())),
         }
     }
 

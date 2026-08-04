@@ -19,7 +19,7 @@ impl ProjectLocator {
         &self,
         project_root: &Path,
         workspace_dir: &str,
-    ) -> anyhow::Result<()> {
+    ) -> crate::core::error::Result<()> {
         ensure_workspace_directory_exists(project_root, workspace_dir)
     }
 }
@@ -69,7 +69,7 @@ fn determine_default_branch(global: &str, local: &str, current: &str) -> String 
 fn ensure_workspace_directory_exists(
     project_root: &Path,
     workspace_dir: &str,
-) -> anyhow::Result<()> {
+) -> crate::core::error::Result<()> {
     let dir = project_root.join(workspace_dir);
     if !dir.is_dir() {
         std::fs::create_dir(&dir)?;
