@@ -1,603 +1,21 @@
 // Integration tests for the Cli presentation layer.
 // Each fake covers exactly one scenario — no god objects.
 
-use std::cell::{Cell, RefCell};
-use std::path::Path;
-use std::rc::Rc;
+#[path = "../common/mod.rs"]
+mod common;
 
-use tmux_worktrees::core::error::Result;
+use std::path::Path;
+
+use common::fakes::git::*;
+use common::fakes::selector::*;
+use common::fakes::tmux::*;
 use tmux_worktrees::core::ports::{GitPort, TmuxPort};
 use tmux_worktrees::core::selector::SelectionResult;
-use tmux_worktrees::core::selector::Selector;
 use tmux_worktrees::presentation::cli::Cli;
 use tmux_worktrees::presentation::command::Command;
-
-// ===========================================================================
-// Stub fakes — unused methods panic
-// ===========================================================================
-
 use tmux_worktrees::presentation::selector_port::SelectorRunner;
 
-/// Selector runner for tests that returns a canned result.
-struct StubSelector;
-impl SelectorRunner for StubSelector {
-    fn run_selector(
-        &self,
-        _selector: &mut tmux_worktrees::core::selector::Selector,
-        _filtered: &[usize],
-        _prompt: &str,
-        _header: &str,
-    ) -> tmux_worktrees::core::error::Result<SelectionResult> {
-        unimplemented!()
-    }
-}
-
-struct StubTmx;
-impl TmuxPort for StubTmx {
-    fn show_error(&self, _msg: &str) -> Result<()> {
-        unimplemented!()
-    }
-    fn display_popup(&self, _w: &str, _h: &str, _d: &str, _c: &str) -> Result<()> {
-        unimplemented!()
-    }
-    fn resolve_workspace_dir(&self) -> String {
-        unimplemented!()
-    }
-    fn resolve_shell_command(&self) -> String {
-        unimplemented!()
-    }
-    fn select_or_create_window(&self, _n: &str, _p: &str, _c: &str) -> Result<()> {
-        unimplemented!()
-    }
-    fn get_option(&self, _k: &str) -> Option<String> {
-        unimplemented!()
-    }
-    fn show_environment(&self, _v: &str) -> Result<Option<String>> {
-        Ok(None)
-    }
-    fn current_pane_path(&self) -> Result<String> {
-        Ok(".".to_string())
-    }
-    fn run(&self, _a: &[&str]) -> Result<(i32, String, String)> {
-        unimplemented!()
-    }
-    fn kill_window(&self, _n: &str) -> Result<()> {
-        unimplemented!()
-    }
-}
-
-struct StubGit;
-impl GitPort for StubGit {
-    fn run_in(&self, _d: &Path, _a: &[&str]) -> Result<(i32, String, String)> {
-        unimplemented!()
-    }
-    fn silent_in(&self, _d: &Path, _a: &[&str]) -> Result<()> {
-        unimplemented!()
-    }
-}
-
 // ===========================================================================
-// run_create("") → show_error
-// ===========================================================================
-
-struct FakeTmxShowError;
-impl TmuxPort for FakeTmxShowError {
-    fn show_error(&self, _msg: &str) -> Result<()> {
-        Ok(())
-    }
-    fn display_popup(&self, _w: &str, _h: &str, _d: &str, _c: &str) -> Result<()> {
-        unimplemented!()
-    }
-    fn resolve_workspace_dir(&self) -> String {
-        unimplemented!()
-    }
-    fn resolve_shell_command(&self) -> String {
-        unimplemented!()
-    }
-    fn select_or_create_window(&self, _n: &str, _p: &str, _c: &str) -> Result<()> {
-        unimplemented!()
-    }
-    fn get_option(&self, _k: &str) -> Option<String> {
-        unimplemented!()
-    }
-    fn show_environment(&self, _v: &str) -> Result<Option<String>> {
-        Ok(None)
-    }
-    fn current_pane_path(&self) -> Result<String> {
-        Ok(".".to_string())
-    }
-    fn run(&self, _a: &[&str]) -> Result<(i32, String, String)> {
-        unimplemented!()
-    }
-    fn kill_window(&self, _n: &str) -> Result<()> {
-        unimplemented!()
-    }
-}
-
-// ===========================================================================
-// run(): interactive command triggered from non-TTY stdin
-// spawn_in_popup → find_repo_root succeeds → display_popup called → Ok
-// ===========================================================================
-
-#[derive(Clone)]
-struct FakeTmxNonTty {
-    show_error_called: std::rc::Rc<std::cell::Cell<bool>>,
-}
-impl FakeTmxNonTty {
-    fn new() -> Self {
-        Self {
-            show_error_called: std::rc::Rc::new(std::cell::Cell::new(false)),
-        }
-    }
-}
-impl TmuxPort for FakeTmxNonTty {
-    fn display_popup(&self, _w: &str, _h: &str, _d: &str, _c: &str) -> Result<()> {
-        Ok(())
-    }
-    fn show_error(&self, _msg: &str) -> Result<()> {
-        self.show_error_called.set(true);
-        Ok(())
-    }
-    fn resolve_workspace_dir(&self) -> String {
-        ".".to_string()
-    }
-    fn resolve_shell_command(&self) -> String {
-        "/bin/sh".to_string()
-    }
-    fn select_or_create_window(&self, _n: &str, _p: &str, _c: &str) -> Result<()> {
-        unimplemented!()
-    }
-    fn get_option(&self, _k: &str) -> Option<String> {
-        unimplemented!()
-    }
-    fn show_environment(&self, _v: &str) -> Result<Option<String>> {
-        Ok(None)
-    }
-    fn current_pane_path(&self) -> Result<String> {
-        Ok(".".to_string())
-    }
-    fn run(&self, _a: &[&str]) -> Result<(i32, String, String)> {
-        unimplemented!()
-    }
-    fn kill_window(&self, _n: &str) -> Result<()> {
-        unimplemented!()
-    }
-}
-
-// ===========================================================================
-// run_create success: needs resolve_workspace_dir, resolve_shell_command,
-// select_or_create_window
-// ===========================================================================
-
-struct FakeTmxCreateSuccess;
-impl TmuxPort for FakeTmxCreateSuccess {
-    fn show_error(&self, _msg: &str) -> Result<()> {
-        Ok(())
-    }
-    fn resolve_workspace_dir(&self) -> String {
-        ".worktrees".into()
-    }
-    fn resolve_shell_command(&self) -> String {
-        "/bin/bash".into()
-    }
-    fn select_or_create_window(&self, _n: &str, _p: &str, _c: &str) -> Result<()> {
-        Ok(())
-    }
-    fn show_environment(&self, _v: &str) -> Result<Option<String>> {
-        Ok(None)
-    }
-    fn current_pane_path(&self) -> Result<String> {
-        Err(tmux_worktrees::core::error::Error::new("no pane"))
-    }
-    fn display_popup(&self, _w: &str, _h: &str, _d: &str, _c: &str) -> Result<()> {
-        unimplemented!()
-    }
-    fn get_option(&self, _k: &str) -> Option<String> {
-        unimplemented!()
-    }
-    fn run(&self, _a: &[&str]) -> Result<(i32, String, String)> {
-        unimplemented!()
-    }
-    fn kill_window(&self, _n: &str) -> Result<()> {
-        unimplemented!()
-    }
-}
-
-// ===========================================================================
-// create_workspace — worktree add succeeds (show-ref succeeds too)
-// ===========================================================================
-
-struct FakeGitWorktreeAdd;
-impl GitPort for FakeGitWorktreeAdd {
-    fn run_in(&self, _d: &Path, args: &[&str]) -> Result<(i32, String, String)> {
-        if args[0] == "show-ref" {
-            Ok((0, String::new(), String::new()))
-        } else {
-            Ok((0, String::new(), String::new()))
-        }
-    }
-    fn silent_in(&self, _d: &Path, _a: &[&str]) -> Result<()> {
-        Ok(())
-    }
-}
-
-// ===========================================================================
-// create_workspace — all git commands fail
-// ===========================================================================
-
-struct FakeGitWorktreeFail;
-impl GitPort for FakeGitWorktreeFail {
-    fn run_in(&self, _d: &Path, args: &[&str]) -> Result<(i32, String, String)> {
-        if args[0] == "show-ref" {
-            Ok((1, String::new(), "ref missing".into()))
-        } else {
-            Ok((1, String::new(), "fail".into()))
-        }
-    }
-    fn silent_in(&self, _d: &Path, _a: &[&str]) -> Result<()> {
-        Ok(())
-    }
-}
-
-// ===========================================================================
-// create_workspace — show-ref FAILS (no remote); local base used
-// ===========================================================================
-
-struct FakeGitWorktreeAddLocal;
-impl GitPort for FakeGitWorktreeAddLocal {
-    fn run_in(&self, _d: &Path, args: &[&str]) -> Result<(i32, String, String)> {
-        if args[0] == "show-ref" {
-            Ok((1, String::new(), String::new()))
-        } else {
-            Ok((0, String::new(), String::new()))
-        }
-    }
-    fn silent_in(&self, _d: &Path, _a: &[&str]) -> Result<()> {
-        Ok(())
-    }
-}
-
-// ===========================================================================
-// remove_workspace — git succeeds
-// ===========================================================================
-
-struct FakeGitWorktreeRemove;
-impl GitPort for FakeGitWorktreeRemove {
-    fn run_in(&self, _d: &Path, args: &[&str]) -> Result<(i32, String, String)> {
-        match args {
-            ["worktree", "remove", "--force", _] => Ok((0, String::new(), String::new())),
-            _ => unimplemented!(),
-        }
-    }
-    fn silent_in(&self, _d: &Path, _a: &[&str]) -> Result<()> {
-        unimplemented!()
-    }
-}
-
-// ===========================================================================
-// remove_workspace — git fails
-// ===========================================================================
-
-struct FakeGitWorktreeRemoveFail;
-impl GitPort for FakeGitWorktreeRemoveFail {
-    fn run_in(&self, _d: &Path, args: &[&str]) -> Result<(i32, String, String)> {
-        match args {
-            ["worktree", "remove", "--force", _] => Ok((1, String::new(), "remove failed".into())),
-            _ => unimplemented!(),
-        }
-    }
-    fn silent_in(&self, _d: &Path, _a: &[&str]) -> Result<()> {
-        unimplemented!()
-    }
-}
-
-// ===========================================================================
-// kill_window — window exists → killed
-// ===========================================================================
-
-struct FakeTmxWithWindow;
-impl TmuxPort for FakeTmxWithWindow {
-    fn run(&self, args: &[&str]) -> Result<(i32, String, String)> {
-        match args {
-            ["list-windows", "-F", "{window_name}"] => Ok((0, "ws-feat/x\n".into(), String::new())),
-            ["kill-window", "-t", _] => Ok((0, String::new(), String::new())),
-            _ => unimplemented!(),
-        }
-    }
-    fn kill_window(&self, branch: &str) -> Result<()> {
-        let win = format!("ws-{branch}");
-        let (status, out, _) = self.run(&["list-windows", "-F", "{window_name}"])?;
-        if status == 0 && out.lines().any(|l| l.trim() == win) {
-            self.run(&["kill-window", "-t", &win])?;
-        }
-        Ok(())
-    }
-    fn show_error(&self, _msg: &str) -> Result<()> {
-        unimplemented!()
-    }
-    fn display_popup(&self, _w: &str, _h: &str, _d: &str, _c: &str) -> Result<()> {
-        unimplemented!()
-    }
-    fn resolve_workspace_dir(&self) -> String {
-        unimplemented!()
-    }
-    fn resolve_shell_command(&self) -> String {
-        unimplemented!()
-    }
-    fn select_or_create_window(&self, _n: &str, _p: &str, _c: &str) -> Result<()> {
-        unimplemented!()
-    }
-    fn get_option(&self, _k: &str) -> Option<String> {
-        unimplemented!()
-    }
-    fn show_environment(&self, _v: &str) -> Result<Option<String>> {
-        Ok(None)
-    }
-    fn current_pane_path(&self) -> Result<String> {
-        Ok(".".to_string())
-    }
-}
-
-// ===========================================================================
-// kill_window — no matching window → no-op
-// ===========================================================================
-
-struct FakeTmxNoWindow;
-impl TmuxPort for FakeTmxNoWindow {
-    fn run(&self, args: &[&str]) -> Result<(i32, String, String)> {
-        match args {
-            ["list-windows", "-F", "{window_name}"] => {
-                Ok((0, "other-window\n".into(), String::new()))
-            }
-            ["kill-window", "-t", _] => Ok((0, String::new(), String::new())),
-            _ => unimplemented!(),
-        }
-    }
-    fn kill_window(&self, branch: &str) -> Result<()> {
-        let win = format!("ws-{branch}");
-        let (status, out, _) = self.run(&["list-windows", "-F", "{window_name}"])?;
-        if status == 0 && out.lines().any(|l| l.trim() == win) {
-            self.run(&["kill-window", "-t", &win])?;
-        }
-        Ok(())
-    }
-    fn show_error(&self, _msg: &str) -> Result<()> {
-        unimplemented!()
-    }
-    fn display_popup(&self, _w: &str, _h: &str, _d: &str, _c: &str) -> Result<()> {
-        unimplemented!()
-    }
-    fn resolve_workspace_dir(&self) -> String {
-        unimplemented!()
-    }
-    fn resolve_shell_command(&self) -> String {
-        unimplemented!()
-    }
-    fn select_or_create_window(&self, _n: &str, _p: &str, _c: &str) -> Result<()> {
-        unimplemented!()
-    }
-    fn get_option(&self, _k: &str) -> Option<String> {
-        unimplemented!()
-    }
-    fn show_environment(&self, _v: &str) -> Result<Option<String>> {
-        Ok(None)
-    }
-    fn current_pane_path(&self) -> Result<String> {
-        Ok(".".to_string())
-    }
-}
-
-// ===========================================================================
-// workspace_branch — rev-parse fails
-// ===========================================================================
-
-struct FakeGitRevParseFail;
-impl GitPort for FakeGitRevParseFail {
-    fn run_in(&self, _d: &Path, args: &[&str]) -> Result<(i32, String, String)> {
-        match args {
-            ["rev-parse", "--abbrev-ref", "HEAD"] => Ok((1, String::new(), String::new())),
-            _ => unimplemented!(),
-        }
-    }
-    fn silent_in(&self, _d: &Path, _a: &[&str]) -> Result<()> {
-        unimplemented!()
-    }
-}
-
-// ===========================================================================
-// workspace_branch — succeeds
-// ===========================================================================
-
-struct FakeGitRevParseOk;
-impl GitPort for FakeGitRevParseOk {
-    fn run_in(&self, _d: &Path, args: &[&str]) -> Result<(i32, String, String)> {
-        match args {
-            ["rev-parse", "--abbrev-ref", "HEAD"] => Ok((0, "feat/x\n".into(), String::new())),
-            _ => unimplemented!(),
-        }
-    }
-    fn silent_in(&self, _d: &Path, _a: &[&str]) -> Result<()> {
-        unimplemented!()
-    }
-}
-
-// ===========================================================================
-// workspace_branch — detached HEAD
-// ===========================================================================
-
-struct FakeGitRevParseDetached;
-impl GitPort for FakeGitRevParseDetached {
-    fn run_in(&self, _d: &Path, args: &[&str]) -> Result<(i32, String, String)> {
-        match args {
-            ["rev-parse", "--abbrev-ref", "HEAD"] => Ok((0, "HEAD\n".into(), String::new())),
-            _ => unimplemented!(),
-        }
-    }
-    fn silent_in(&self, _d: &Path, _a: &[&str]) -> Result<()> {
-        unimplemented!()
-    }
-}
-
-// ===========================================================================
-// list_workspaces — porcelain fails
-// ===========================================================================
-
-struct FakeGitWorktreeListFail;
-impl GitPort for FakeGitWorktreeListFail {
-    fn run_in(&self, _d: &Path, args: &[&str]) -> Result<(i32, String, String)> {
-        match args {
-            ["worktree", "list", "--porcelain"] => Ok((1, String::new(), String::new())),
-            _ => unimplemented!(),
-        }
-    }
-    fn silent_in(&self, _d: &Path, _a: &[&str]) -> Result<()> {
-        unimplemented!()
-    }
-}
-
-// ===========================================================================
-// list_workspaces — returns paths
-// ===========================================================================
-
-struct FakeGitWorktreeListOk;
-impl GitPort for FakeGitWorktreeListOk {
-    fn run_in(&self, _d: &Path, args: &[&str]) -> Result<(i32, String, String)> {
-        match args {
-            ["worktree", "list", "--porcelain"] => {
-                Ok((0, "worktree /tmp/repo\nworktree /tmp/repo/worktrees/feat-a\nworktree /tmp/repo/worktrees/fix-b\n".into(), String::new()))
-            }
-            _ => unimplemented!(),
-        }
-    }
-    fn silent_in(&self, _d: &Path, _a: &[&str]) -> Result<()> {
-        unimplemented!()
-    }
-}
-
-// ===========================================================================
-// resolve_default_branch — both global and local config succeed
-// ===========================================================================
-
-struct FakeGitDefaultBranch;
-impl GitPort for FakeGitDefaultBranch {
-    fn run_in(&self, _d: &Path, args: &[&str]) -> Result<(i32, String, String)> {
-        match args {
-            ["config", "--global", "init.defaultBranch"] => Ok((0, "main".into(), String::new())),
-            ["config", "init.defaultBranch"] => Ok((0, "main".into(), String::new())),
-            ["branch", "--show-current"] => Ok((0, "main".into(), String::new())),
-            _ => unimplemented!(),
-        }
-    }
-    fn silent_in(&self, _d: &Path, _a: &[&str]) -> Result<()> {
-        unimplemented!()
-    }
-}
-
-// ===========================================================================
-// resolve_default_branch — global fails, local succeeds
-// ===========================================================================
-
-struct FakeGitBranchLocalOnly;
-impl GitPort for FakeGitBranchLocalOnly {
-    fn run_in(&self, _d: &Path, args: &[&str]) -> Result<(i32, String, String)> {
-        match args {
-            ["config", "--global", "init.defaultBranch"] => Ok((1, String::new(), String::new())),
-            ["config", "init.defaultBranch"] => Ok((0, "develop".into(), String::new())),
-            ["branch", "--show-current"] => Ok((0, "develop".into(), String::new())),
-            _ => unimplemented!(),
-        }
-    }
-    fn silent_in(&self, _d: &Path, _a: &[&str]) -> Result<()> {
-        unimplemented!()
-    }
-}
-
-// ===========================================================================
-// resolve_default_branch — both global and local fail, falls through to current
-// ===========================================================================
-
-struct FakeGitBranchFallbackCurrent;
-impl GitPort for FakeGitBranchFallbackCurrent {
-    fn run_in(&self, _d: &Path, args: &[&str]) -> Result<(i32, String, String)> {
-        match args {
-            ["config", "--global", "init.defaultBranch"] => Ok((1, String::new(), String::new())),
-            ["config", "init.defaultBranch"] => Ok((1, String::new(), String::new())),
-            ["branch", "--show-current"] => Ok((0, "trunk".into(), String::new())),
-            _ => unimplemented!(),
-        }
-    }
-    fn silent_in(&self, _d: &Path, _a: &[&str]) -> Result<()> {
-        unimplemented!()
-    }
-}
-
-// ===========================================================================
-// delete_branch — silent_in succeeds
-// ===========================================================================
-
-struct FakeGitBranchDelete;
-impl GitPort for FakeGitBranchDelete {
-    fn run_in(&self, _d: &Path, _a: &[&str]) -> Result<(i32, String, String)> {
-        unimplemented!()
-    }
-    fn silent_in(&self, _d: &Path, _args: &[&str]) -> Result<()> {
-        Ok(())
-    }
-}
-
-// ===========================================================================
-// spawn_in_popup — display_popup called when find_repo_root succeeds
-// ===========================================================================
-
-#[derive(Clone)]
-struct FakeTmxPopupOk {
-    display_called: std::rc::Rc<std::cell::Cell<bool>>,
-}
-impl FakeTmxPopupOk {
-    fn new() -> Self {
-        Self {
-            display_called: std::rc::Rc::new(std::cell::Cell::new(false)),
-        }
-    }
-}
-impl TmuxPort for FakeTmxPopupOk {
-    fn display_popup(&self, _w: &str, _h: &str, _d: &str, _c: &str) -> Result<()> {
-        self.display_called.set(true);
-        Ok(())
-    }
-    fn show_environment(&self, _v: &str) -> Result<Option<String>> {
-        Ok(None)
-    }
-    fn current_pane_path(&self) -> Result<String> {
-        Err(tmux_worktrees::core::error::Error::new("no pane"))
-    }
-    fn show_error(&self, _msg: &str) -> Result<()> {
-        unimplemented!()
-    }
-    fn resolve_workspace_dir(&self) -> String {
-        unimplemented!()
-    }
-    fn resolve_shell_command(&self) -> String {
-        unimplemented!()
-    }
-    fn select_or_create_window(&self, _n: &str, _p: &str, _c: &str) -> Result<()> {
-        unimplemented!()
-    }
-    fn get_option(&self, _k: &str) -> Option<String> {
-        unimplemented!()
-    }
-    fn run(&self, _a: &[&str]) -> Result<(i32, String, String)> {
-        unimplemented!()
-    }
-    fn kill_window(&self, _n: &str) -> Result<()> {
-        unimplemented!()
-    }
-}
-
-// ===========================================================================
-// Helper
-// ===========================================================================
-
 fn cli_with(
     tmux: impl TmuxPort + 'static,
     git: impl GitPort + 'static,
@@ -918,85 +336,6 @@ fn find_repo_root_is_idempotent() {
     let r2 = cli.find_repo_root().unwrap();
     assert_eq!(r1, r2);
 }
-
-// ===========================================================================
-// Combined GitPort fake — handles config, symbolic-ref, and worktree ops
-// ===========================================================================
-
-struct FakeGitCreate;
-impl GitPort for FakeGitCreate {
-    fn run_in(&self, _dir: &Path, args: &[&str]) -> Result<(i32, String, String)> {
-        if args.contains(&"init.defaultBranch") {
-            Ok((0, "main".into(), String::new()))
-        } else if args.contains(&"--show-current") {
-            Ok((0, "main".into(), String::new()))
-        } else if args.contains(&"show-ref") {
-            // Remote branch doesn't exist → fall through to use local "main"
-            Ok((1, String::new(), String::new()))
-        } else if args.contains(&"worktree") && args.contains(&"add") {
-            // Worktree add succeeds
-            Ok((0, String::new(), String::new()))
-        } else {
-            unimplemented!("unexpected run_in args: {args:?}")
-        }
-    }
-    fn silent_in(&self, _dir: &Path, _args: &[&str]) -> Result<()> {
-        Ok(())
-    }
-}
-
-// ===========================================================================
-// run_create full success path — select_or_create_window fails → run() shows error
-// ===========================================================================
-
-#[derive(Clone)]
-struct FakeTmxWindowFail {
-    show_error_called: std::rc::Rc<std::cell::Cell<bool>>,
-}
-impl FakeTmxWindowFail {
-    fn new() -> Self {
-        Self {
-            show_error_called: std::rc::Rc::new(std::cell::Cell::new(false)),
-        }
-    }
-}
-impl TmuxPort for FakeTmxWindowFail {
-    fn show_error(&self, _msg: &str) -> Result<()> {
-        self.show_error_called.set(true);
-        Ok(())
-    }
-    fn resolve_workspace_dir(&self) -> String {
-        ".worktrees".into()
-    }
-    fn resolve_shell_command(&self) -> String {
-        "/bin/bash".into()
-    }
-    fn select_or_create_window(&self, _n: &str, _p: &str, _c: &str) -> Result<()> {
-        Err(tmux_worktrees::core::error::Error::new(
-            "window creation failed",
-        ))
-    }
-    fn show_environment(&self, _v: &str) -> Result<Option<String>> {
-        Ok(None)
-    }
-    fn current_pane_path(&self) -> Result<String> {
-        Err(tmux_worktrees::core::error::Error::new("no pane"))
-    }
-    fn display_popup(&self, _w: &str, _h: &str, _d: &str, _c: &str) -> Result<()> {
-        unimplemented!()
-    }
-    fn get_option(&self, _k: &str) -> Option<String> {
-        unimplemented!()
-    }
-    fn run(&self, _a: &[&str]) -> Result<(i32, String, String)> {
-        unimplemented!()
-    }
-    fn kill_window(&self, _n: &str) -> Result<()> {
-        unimplemented!()
-    }
-}
-
-// ===========================================================================
 // run_create success path — full flow through to select_or_create_window
 // ===========================================================================
 
@@ -1010,6 +349,9 @@ fn run_create_full_success_path() {
 // ===========================================================================
 // run error path — when dispatch returns Err, show_error is called
 // ===========================================================================
+
+/// Repo path for tests that rely on worktree list porcelain.
+const REPO: &str = "/home/gbrennon/Documents/repos/gbrennon/tmux-worktrees";
 
 #[test]
 fn run_error_path_shows_error_when_dispatch_fails() {
@@ -1047,228 +389,11 @@ fn run_create_shows_error_when_workspace_creation_fails() {
 }
 
 // ===========================================================================
-// FakeSelector — returns configurable SelectionResult values from a queue
-// ===========================================================================
-
-struct FakeSelector {
-    results: RefCell<Vec<SelectionResult>>,
-}
-impl FakeSelector {
-    fn new(results: Vec<SelectionResult>) -> Self {
-        Self {
-            results: RefCell::new(results),
-        }
-    }
-}
-impl SelectorRunner for FakeSelector {
-    fn run_selector(
-        &self,
-        _selector: &mut Selector,
-        _filtered: &[usize],
-        _prompt: &str,
-        _header: &str,
-    ) -> Result<SelectionResult> {
-        let mut results = self.results.borrow_mut();
-        if !results.is_empty() {
-            Ok(results.remove(0))
-        } else {
-            Ok(SelectionResult::Cancelled)
-        }
-    }
-}
-
-// ===========================================================================
-// FakeTmxTest — generic TmuxPort for most tests
-// ===========================================================================
-
-struct FakeTmxTest {
-    kill_called: Rc<Cell<bool>>,
-    show_error_called: Rc<Cell<bool>>,
-    show_error_msg: Rc<RefCell<String>>,
-    display_msgs: Rc<RefCell<Vec<String>>>,
-    pane_path: Option<String>,
-    env_value: Option<String>,
-    worktree_dir: String,
-    shell_cmd: String,
-    auto_fetch: Option<String>,
-}
-impl FakeTmxTest {
-    fn new() -> Self {
-        Self {
-            kill_called: Rc::new(Cell::new(false)),
-            show_error_called: Rc::new(Cell::new(false)),
-            show_error_msg: Rc::new(RefCell::new(String::new())),
-            display_msgs: Rc::new(RefCell::new(Vec::new())),
-            pane_path: None,
-            env_value: Some(REPO.to_string()),
-            worktree_dir: ".worktrees".into(),
-            shell_cmd: "/bin/bash".into(),
-            auto_fetch: Some("false".into()),
-        }
-    }
-}
-impl TmuxPort for FakeTmxTest {
-    fn show_error(&self, msg: &str) -> Result<()> {
-        self.show_error_called.set(true);
-        *self.show_error_msg.borrow_mut() = msg.to_string();
-        Ok(())
-    }
-    fn resolve_workspace_dir(&self) -> String {
-        self.worktree_dir.clone()
-    }
-    fn resolve_shell_command(&self) -> String {
-        self.shell_cmd.clone()
-    }
-    fn select_or_create_window(&self, _n: &str, _p: &str, _c: &str) -> Result<()> {
-        Ok(())
-    }
-    fn show_environment(&self, _v: &str) -> Result<Option<String>> {
-        Ok(self.env_value.clone())
-    }
-    fn current_pane_path(&self) -> Result<String> {
-        match &self.pane_path {
-            Some(p) => Ok(p.clone()),
-            None => Err(tmux_worktrees::core::error::Error::new("no pane")),
-        }
-    }
-    fn display_popup(&self, _w: &str, _h: &str, _d: &str, _c: &str) -> Result<()> {
-        unimplemented!()
-    }
-    fn get_option(&self, _k: &str) -> Option<String> {
-        self.auto_fetch.clone()
-    }
-    fn run(&self, args: &[&str]) -> Result<(i32, String, String)> {
-        if args.len() >= 2 && args[0] == "display-message" {
-            self.display_msgs.borrow_mut().push(args[1].to_string());
-        }
-        Ok((0, String::new(), String::new()))
-    }
-    fn kill_window(&self, _n: &str) -> Result<()> {
-        self.kill_called.set(true);
-        Ok(())
-    }
-}
-
-// ===========================================================================
-// FakeGitPorcelain — handles only worktree list --porcelain
-// ===========================================================================
-
-struct FakeGitPorcelain {
-    output: String,
-}
-impl FakeGitPorcelain {
-    fn new(output: &str) -> Self {
-        Self {
-            output: output.to_string(),
-        }
-    }
-}
-impl GitPort for FakeGitPorcelain {
-    fn run_in(&self, _d: &Path, args: &[&str]) -> Result<(i32, String, String)> {
-        match args {
-            ["worktree", "list", "--porcelain"] => Ok((0, self.output.clone(), String::new())),
-            _ => unimplemented!("unexpected: {:?}", args),
-        }
-    }
-    fn silent_in(&self, _d: &Path, _a: &[&str]) -> Result<()> {
-        Ok(())
-    }
-}
-
-// ===========================================================================
-// FakeGitForCleanup — handles all commands needed by run_cleanup
-// ===========================================================================
-
-struct FakeGitForCleanup {
-    porcelain: String,
-    rev_parse_output: String,
-    remove_status: i32,
-    remove_stderr: String,
-}
-impl FakeGitForCleanup {
-    fn new(porcelain: &str) -> Self {
-        Self {
-            porcelain: porcelain.to_string(),
-            rev_parse_output: "feat-a".into(),
-            remove_status: 0,
-            remove_stderr: String::new(),
-        }
-    }
-    fn with_remove_failure(mut self) -> Self {
-        self.remove_status = 1;
-        self.remove_stderr = "worktree locked".into();
-        self
-    }
-}
-impl GitPort for FakeGitForCleanup {
-    fn run_in(&self, _d: &Path, args: &[&str]) -> Result<(i32, String, String)> {
-        match args {
-            ["config", "--global", "init.defaultBranch"] => Ok((0, "main".into(), String::new())),
-            ["config", "init.defaultBranch"] => Ok((0, "main".into(), String::new())),
-            ["branch", "--show-current"] => Ok((0, "main".into(), String::new())),
-            ["worktree", "list", "--porcelain"] => Ok((0, self.porcelain.clone(), String::new())),
-            ["rev-parse", "--abbrev-ref", "HEAD"] => {
-                Ok((0, self.rev_parse_output.clone(), String::new()))
-            }
-            ["merge-base", "--is-ancestor", "HEAD", _] => Ok((0, String::new(), String::new())),
-            ["fetch", "origin", _, "--no-tags"] => Ok((0, String::new(), String::new())),
-            ["worktree", "remove", "--force", _] => Ok((
-                self.remove_status,
-                String::new(),
-                self.remove_stderr.clone(),
-            )),
-            _ => unimplemented!("unexpected git run_in: {:?}", args),
-        }
-    }
-    fn silent_in(&self, _d: &Path, args: &[&str]) -> Result<()> {
-        match args {
-            ["branch", "-D", _] => Ok(()),
-            _ => unimplemented!("unexpected git silent_in: {:?}", args),
-        }
-    }
-}
-
-// ===========================================================================
-// FakeGitForChoose — handles porcelain + full run_create flow
-// ===========================================================================
-
-struct FakeGitForChoose;
-impl GitPort for FakeGitForChoose {
-    fn run_in(&self, _d: &Path, args: &[&str]) -> Result<(i32, String, String)> {
-        match args {
-            ["worktree", "list", "--porcelain"] => Ok((
-                0,
-                format!("worktree {}\nworktree {}/.worktrees/feat-a\n", REPO, REPO),
-                String::new(),
-            )),
-            ["config", "--global", "init.defaultBranch"] => Ok((0, "main".into(), String::new())),
-            ["config", "init.defaultBranch"] => Ok((0, "main".into(), String::new())),
-            ["branch", "--show-current"] => Ok((0, "main".into(), String::new())),
-            ["show-ref", "--verify", "--quiet", _] => Ok((1, String::new(), String::new())),
-            ["worktree", "add", _, "-b", _, _] => Ok((0, String::new(), String::new())),
-            _ => unimplemented!("unexpected git run_in: {:?}", args),
-        }
-    }
-    fn silent_in(&self, _d: &Path, _a: &[&str]) -> Result<()> {
-        Ok(())
-    }
-}
-
-// ===========================================================================
-// Repo path for test porcelain
-// ===========================================================================
-
-const REPO: &str = "/home/gbrennon/Documents/repos/gbrennon/tmux-worktrees";
-
-// ===========================================================================
-// Test: dispatch calls run_choose
-// ===========================================================================
-
 #[test]
 fn dispatch_choose_calls_run_choose_and_cancels() {
     let selector = FakeSelector::new(vec![SelectionResult::Cancelled]);
     let cli = cli_with(
-        FakeTmxTest::new(),
+        FakeTmxTest::new(REPO),
         FakeGitPorcelain::new(&format!(
             "worktree {}\nworktree {}/.worktrees/feat-a\n",
             REPO, REPO
@@ -1287,7 +412,7 @@ fn dispatch_choose_calls_run_choose_and_cancels() {
 fn dispatch_cleanup_calls_run_cleanup_and_cancels() {
     let selector = FakeSelector::new(vec![SelectionResult::Cancelled]);
     let cli = cli_with(
-        FakeTmxTest::new(),
+        FakeTmxTest::new(REPO),
         FakeGitForCleanup::new(&format!(
             "worktree {}\nworktree {}/.worktrees/feat-a\n",
             REPO, REPO
@@ -1306,7 +431,7 @@ fn dispatch_cleanup_calls_run_cleanup_and_cancels() {
 fn run_choose_returns_cancelled() {
     let selector = FakeSelector::new(vec![SelectionResult::Cancelled]);
     let cli = cli_with(
-        FakeTmxTest::new(),
+        FakeTmxTest::new(REPO),
         FakeGitPorcelain::new(&format!(
             "worktree {}\nworktree {}/.worktrees/feat-a\n",
             REPO, REPO
@@ -1325,7 +450,7 @@ fn run_choose_returns_cancelled() {
 fn run_choose_no_workspaces_shows_header_and_cancels() {
     let selector = FakeSelector::new(vec![SelectionResult::Cancelled]);
     let cli = cli_with(
-        FakeTmxTest::new(),
+        FakeTmxTest::new(REPO),
         FakeGitPorcelain::new(""), // empty porcelain — only main repo path filtered out
         selector,
     );
@@ -1340,7 +465,11 @@ fn run_choose_no_workspaces_shows_header_and_cancels() {
 #[test]
 fn run_choose_creates_workspace_for_custom_branch() {
     let selector = FakeSelector::new(vec![SelectionResult::Custom("my-branch".into())]);
-    let cli = cli_with(FakeTmxTest::new(), FakeGitForChoose, selector);
+    let cli = cli_with(
+        FakeTmxTest::new(REPO),
+        FakeGitForChoose::new(REPO),
+        selector,
+    );
     let result = cli.run_choose();
     assert!(result.is_ok(), "expected Ok, got {:?}", result);
 }
@@ -1351,7 +480,7 @@ fn run_choose_creates_workspace_for_custom_branch() {
 
 #[test]
 fn run_cleanup_removes_workspace_and_deletes_branch() {
-    let tmux = FakeTmxTest::new();
+    let tmux = FakeTmxTest::new(REPO);
     let kill_called = tmux.kill_called.clone();
     let display_msgs = tmux.display_msgs.clone();
     let selector = FakeSelector::new(vec![SelectionResult::Selected(0)]);
@@ -1381,7 +510,7 @@ fn run_cleanup_removes_workspace_and_deletes_branch() {
 
 #[test]
 fn run_cleanup_shows_error_on_removal_failure() {
-    let tmux = FakeTmxTest::new();
+    let tmux = FakeTmxTest::new(REPO);
     let show_error_called = tmux.show_error_called.clone();
     let show_error_msg = tmux.show_error_msg.clone();
     let selector = FakeSelector::new(vec![SelectionResult::Selected(0)]);
@@ -1417,7 +546,7 @@ fn run_cleanup_shows_error_on_removal_failure() {
 
 #[test]
 fn run_cleanup_empty_workspaces_shows_message() {
-    let tmux = FakeTmxTest::new();
+    let tmux = FakeTmxTest::new(REPO);
     let show_error_called = tmux.show_error_called.clone();
     let selector = FakeSelector::new(vec![SelectionResult::Cancelled]);
     let cli = cli_with(
