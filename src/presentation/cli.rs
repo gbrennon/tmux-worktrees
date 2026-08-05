@@ -1,4 +1,5 @@
 use crate::core::error::Result;
+use crate::presentation::loading_port::LoadingRunner;
 use crate::presentation::selector_port::SelectorRunner;
 use std::io::IsTerminal;
 use std::path::Path;
@@ -12,12 +13,13 @@ use crate::core::{
     workspace_resolver::WorkspaceResolver,
 };
 
-/// Presentation-layer CLI — owns the tmux and git adapters and exposes
-/// one method per user-facing command.
+/// Presentation-layer CLI — owns the tmux, git, selector and loading adapters
+/// and exposes one method per user-facing command.
 pub struct Cli {
     tmux: Box<dyn TmuxPort>,
     git: Box<dyn GitPort>,
     selector: Box<dyn SelectorRunner>,
+    loading: Box<dyn LoadingRunner>,
 }
 
 impl Cli {
@@ -25,11 +27,13 @@ impl Cli {
         tmux: Box<dyn TmuxPort>,
         git: Box<dyn GitPort>,
         selector: Box<dyn SelectorRunner>,
+        loading: Box<dyn LoadingRunner>,
     ) -> Self {
         Self {
             tmux,
             git,
             selector,
+            loading,
         }
     }
 
@@ -194,9 +198,18 @@ impl Cli {
             .get_option("worktree-auto-fetch")
             .unwrap_or_else(|| "true".to_string());
         if auto_fetch != "false" {
-            let _ = self.git.run_in(
-                repo_root_path,
-                &["fetch", "origin", &default_branch, "--no-tags"],
+            let git = &self.git;
+            let loading = &self.loading;
+            let fetch_branch = default_branch.clone();
+            let _ = loading.run_loading(
+                "Fetching default branch…",
+                Box::new(move || {
+                    git.run_in(
+                        repo_root_path,
+                        &["fetch", "origin", &fetch_branch, "--no-tags"],
+                    )
+                    .map(|_| ())
+                }),
             );
         }
         let workspaces = self.list_workspaces(repo_root_path, &worktree_dir)?;
@@ -351,9 +364,12 @@ impl Cli {
         branch: &str,
         base: &str,
     ) -> Result<()> {
-        let _ = self
-            .git
-            .silent_in(repo_root, &["fetch", "origin", "--quiet"]);
+        let git = &self.git;
+        let loading = &self.loading;
+        let _ = loading.run_loading(
+            "Fetching origin…",
+            Box::new(move || git.silent_in(repo_root, &["fetch", "origin", "--quiet"])),
+        );
         let mut base = base.to_string();
         let remote_base = format!("refs/remotes/origin/{base}");
         let exists = self
