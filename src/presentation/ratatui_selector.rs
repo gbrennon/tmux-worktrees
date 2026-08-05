@@ -22,7 +22,6 @@ impl From<crossterm::event::KeyEvent> for Key {
             },
             crossterm::event::KeyEvent {
                 code: KeyCode::Char(c),
-                modifiers: _,
                 ..
             } => Key::Char(c),
             crossterm::event::KeyEvent {
