@@ -1,11 +1,11 @@
 use fuzzy_matcher::{FuzzyMatcher, clangd::ClangdMatcher};
 use ratatui::{
-    Frame, Terminal,
-    backend::{Backend, CrosstermBackend},
     layout::{Constraint, Direction, Layout},
     style::{Color, Style},
     widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
 };
+
+use super::terminal_backend::{RealTerminal, TerminalBackend};
 
 impl From<crossterm::event::KeyEvent> for Key {
     fn from(event: crossterm::event::KeyEvent) -> Self {
@@ -58,59 +58,17 @@ use crate::{
     presentation::selector_port::SelectorRunner,
 };
 
-trait TerminalBackend {
-    type Term: Backend;
-
-    fn setup() -> Result<Terminal<Self::Term>>;
-
-    fn draw_frame(terminal: &mut Terminal<Self::Term>, f: impl FnOnce(&mut Frame)) -> Result<()> {
-        terminal
-            .draw(f)
-            .map(|_| ())
-            .map_err(|e| Error::new(format!("Failed to draw terminal: {}", e)))
-    }
-
-    fn read_event() -> Result<crossterm::event::Event>;
-
-    fn restore(terminal: &mut Terminal<Self::Term>) -> Result<()>;
-}
-
-struct RealTerminal;
-
-impl TerminalBackend for RealTerminal {
-    type Term = CrosstermBackend<std::io::Stdout>;
-
-    fn setup() -> Result<Terminal<Self::Term>> {
-        use std::io::stdout;
-        crossterm::terminal::enable_raw_mode()?;
-        crossterm::execute!(stdout(), crossterm::terminal::EnterAlternateScreen)?;
-        let backend = ratatui::backend::CrosstermBackend::new(stdout());
-        Terminal::new(backend)
-            .map_err(|e| Error::new(format!("Failed to initialize terminal: {}", e)))
-    }
-
-    fn read_event() -> Result<crossterm::event::Event> {
-        crossterm::event::read().map_err(|e| Error::new(format!("Failed to read key event: {}", e)))
-    }
-
-    fn restore(terminal: &mut Terminal<Self::Term>) -> Result<()> {
-        crossterm::terminal::disable_raw_mode()?;
-        crossterm::execute!(std::io::stdout(), crossterm::terminal::LeaveAlternateScreen)?;
-        terminal.show_cursor()?;
-        Ok(())
-    }
-}
-
 pub struct RatatuiSelector;
 
 impl RatatuiSelector {
     fn run_with_backend<B: TerminalBackend>(
+        backend: &B,
         selector: &mut Selector,
         _filtered: &[usize],
         prompt: &str,
         header: &str,
     ) -> Result<SelectionResult> {
-        let mut terminal = B::setup()?;
+        let mut terminal = backend.setup()?;
         terminal
             .clear()
             .map_err(|e| Error::new(format!("Failed to clear terminal: {}", e)))?;
@@ -132,8 +90,8 @@ impl RatatuiSelector {
 
             selector.clamp_selection(filtered.len());
 
-            B::draw_frame(&mut terminal, |f| {
-                let area = f.size();
+            backend.draw_frame(&mut terminal, |f| {
+                let area = f.area();
                 let chunks = Layout::default()
                     .direction(Direction::Vertical)
                     .constraints([
@@ -161,14 +119,14 @@ impl RatatuiSelector {
                 f.render_stateful_widget(list, chunks[2], &mut ls);
             })?;
 
-            if let crossterm::event::Event::Key(k) = B::read_event()?
+            if let crossterm::event::Event::Key(k) = backend.read_event()?
                 && let Some(result) = selector.process_key(Key::from(k), &filtered)
             {
                 break result;
             }
         };
 
-        B::restore(&mut terminal)?;
+        backend.restore(&mut terminal)?;
         Ok(result)
     }
 }
@@ -181,13 +139,14 @@ impl SelectorRunner for RatatuiSelector {
         prompt: &str,
         header: &str,
     ) -> Result<SelectionResult> {
-        Self::run_with_backend::<RealTerminal>(selector, filtered, prompt, header)
+        Self::run_with_backend(&RealTerminal, selector, filtered, prompt, header)
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use ratatui::{Frame, Terminal};
     use std::cell::RefCell;
 
     thread_local! {
@@ -287,7 +246,7 @@ mod tests {
     impl TerminalBackend for FakeTerminal {
         type Term = TestBackend;
 
-        fn setup() -> Result<Terminal<Self::Term>> {
+        fn setup(&self) -> Result<Terminal<Self::Term>> {
             if SETUP_FAILS.with(|f| *f.borrow()) {
                 return Err(Error::new("Simulated setup failure"));
             }
@@ -297,6 +256,7 @@ mod tests {
         }
 
         fn draw_frame(
+            &self,
             terminal: &mut Terminal<Self::Term>,
             f: impl FnOnce(&mut Frame),
         ) -> Result<()> {
@@ -309,7 +269,7 @@ mod tests {
                 .map_err(|e| Error::new(format!("Failed to draw terminal: {}", e)))
         }
 
-        fn read_event() -> Result<crossterm::event::Event> {
+        fn read_event(&self) -> Result<crossterm::event::Event> {
             if READ_FAILS.with(|r| *r.borrow()) {
                 return Err(Error::new("Simulated read failure"));
             }
@@ -321,7 +281,7 @@ mod tests {
             })
         }
 
-        fn restore(_terminal: &mut Terminal<Self::Term>) -> Result<()> {
+        fn restore(&self, _terminal: &mut Terminal<Self::Term>) -> Result<()> {
             if RESTORE_FAILS.with(|r| *r.borrow()) {
                 return Err(Error::new("Simulated restore failure"));
             }
@@ -336,7 +296,7 @@ mod tests {
         prompt: &str,
         header: &str,
     ) -> Result<SelectionResult> {
-        RatatuiSelector::run_with_backend::<FakeTerminal>(selector, &[], prompt, header)
+        RatatuiSelector::run_with_backend(&FakeTerminal, selector, &[], prompt, header)
     }
 
     // -- tests -------------------------------------------------------------

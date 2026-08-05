@@ -7,12 +7,14 @@ mod common;
 use std::path::Path;
 
 use common::fakes::git::*;
+use common::fakes::loading::*;
 use common::fakes::selector::*;
 use common::fakes::tmux::*;
 use tmux_worktrees::core::ports::{GitPort, TmuxPort};
 use tmux_worktrees::core::selector::SelectionResult;
 use tmux_worktrees::presentation::cli::Cli;
 use tmux_worktrees::presentation::command::Command;
+use tmux_worktrees::presentation::loading_port::LoadingRunner;
 use tmux_worktrees::presentation::selector_port::SelectorRunner;
 
 // ===========================================================================
@@ -21,7 +23,21 @@ fn cli_with(
     git: impl GitPort + 'static,
     selector: impl SelectorRunner + 'static,
 ) -> Cli {
-    Cli::new(Box::new(tmux), Box::new(git), Box::new(selector))
+    cli_with_loading(tmux, git, selector, FakeLoading::new())
+}
+
+fn cli_with_loading(
+    tmux: impl TmuxPort + 'static,
+    git: impl GitPort + 'static,
+    selector: impl SelectorRunner + 'static,
+    loading: impl LoadingRunner + 'static,
+) -> Cli {
+    Cli::new(
+        Box::new(tmux),
+        Box::new(git),
+        Box::new(selector),
+        Box::new(loading),
+    )
 }
 
 fn cli_default(tmux: impl TmuxPort + 'static, git: impl GitPort + 'static) -> Cli {
@@ -553,5 +569,49 @@ fn run_cleanup_empty_workspaces_shows_message() {
     assert!(
         show_error_called.get(),
         "show_error should have been called for empty workspaces"
+    );
+}
+
+// ===========================================================================
+// Test: loading indicator shown during slow operations
+// ===========================================================================
+
+#[test]
+fn run_cleanup_shows_loading_during_fetch() {
+    let loading = FakeLoading::new();
+    let loading_labels = loading.labels.clone();
+    let mut tmux = FakeTmxTest::new(REPO);
+    tmux.auto_fetch = None;
+    let cli = cli_with_loading(
+        tmux,
+        FakeGitForCleanup::new("worktree __ROOT__\nworktree __ROOT__/.worktrees/feat-a\n"),
+        FakeSelector::new(vec![SelectionResult::Cancelled]),
+        loading,
+    );
+    let result = cli.run_cleanup();
+    assert!(result.is_ok(), "expected Ok, got {:?}", result);
+    let labels: Vec<_> = loading_labels.borrow().iter().cloned().collect();
+    assert!(
+        labels.iter().any(|l| l.contains("Fetching")),
+        "expected a fetch loading label, got {labels:?}"
+    );
+}
+
+#[test]
+fn create_workspace_shows_loading_during_fetch() {
+    let loading = FakeLoading::new();
+    let loading_labels = loading.labels.clone();
+    let cli = cli_with_loading(StubTmx, FakeGitWorktreeAdd, StubSelector, loading);
+    let result = cli.create_workspace(
+        Path::new("/tmp/repo"),
+        Path::new("/tmp/test-target"),
+        "feat/x",
+        "main",
+    );
+    assert!(result.is_ok(), "expected Ok, got {:?}", result);
+    let labels: Vec<_> = loading_labels.borrow().iter().cloned().collect();
+    assert!(
+        labels.iter().any(|l| l.contains("Fetching")),
+        "expected a fetch loading label, got {labels:?}"
     );
 }
