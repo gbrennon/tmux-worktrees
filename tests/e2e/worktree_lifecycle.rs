@@ -89,6 +89,7 @@ fn e2e_cli(tmux: TmuxExecutor, git: GitExecutor) -> Cli {
         Box::new(tmux),
         Box::new(git),
         Box::new(tmux_worktrees::presentation::ratatui_selector::RatatuiSelector),
+        Box::new(tmux_worktrees::presentation::ratatui_loading::RatatuiLoading),
     )
 }
 
