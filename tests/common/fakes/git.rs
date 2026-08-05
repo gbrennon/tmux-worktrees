@@ -342,12 +342,15 @@ impl FakeGitForCleanup {
     }
 }
 impl GitPort for FakeGitForCleanup {
-    fn run_in(&self, _d: &Path, args: &[&str]) -> Result<(i32, String, String)> {
+    fn run_in(&self, d: &Path, args: &[&str]) -> Result<(i32, String, String)> {
         match args {
             ["config", "--global", "init.defaultBranch"] => Ok((0, "main".into(), String::new())),
             ["config", "init.defaultBranch"] => Ok((0, "main".into(), String::new())),
             ["branch", "--show-current"] => Ok((0, "main".into(), String::new())),
-            ["worktree", "list", "--porcelain"] => Ok((0, self.porcelain.clone(), String::new())),
+            ["worktree", "list", "--porcelain"] => {
+                let porcelain = self.porcelain.replace("__ROOT__", &d.to_string_lossy());
+                Ok((0, porcelain, String::new()))
+            }
             ["rev-parse", "--abbrev-ref", "HEAD"] => {
                 Ok((0, self.rev_parse_output.clone(), String::new()))
             }

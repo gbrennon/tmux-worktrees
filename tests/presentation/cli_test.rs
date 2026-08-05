@@ -486,10 +486,7 @@ fn run_cleanup_removes_workspace_and_deletes_branch() {
     let selector = FakeSelector::new(vec![SelectionResult::Selected(0)]);
     let cli = cli_with(
         tmux,
-        FakeGitForCleanup::new(&format!(
-            "worktree {}\nworktree {}/.worktrees/feat-a\n",
-            REPO, REPO
-        )),
+        FakeGitForCleanup::new("worktree __ROOT__\nworktree __ROOT__/.worktrees/feat-a\n"),
         selector,
     );
     let result = cli.run_cleanup();
@@ -516,11 +513,8 @@ fn run_cleanup_shows_error_on_removal_failure() {
     let selector = FakeSelector::new(vec![SelectionResult::Selected(0)]);
     let cli = cli_with(
         tmux,
-        FakeGitForCleanup::new(&format!(
-            "worktree {}\nworktree {}/.worktrees/feat-a\n",
-            REPO, REPO
-        ))
-        .with_remove_failure(),
+        FakeGitForCleanup::new("worktree __ROOT__\nworktree __ROOT__/.worktrees/feat-a\n")
+            .with_remove_failure(),
         selector,
     );
     let result = cli.run_cleanup();
