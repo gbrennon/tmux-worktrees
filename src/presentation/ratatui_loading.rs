@@ -21,6 +21,9 @@ impl RatatuiLoading {
         B::Term: Send,
         F: FnOnce() -> Result<()>,
     {
+        let min_display = backend.min_display();
+        let start = std::time::Instant::now();
+
         let mut terminal = backend.setup()?;
         terminal
             .clear()
@@ -46,6 +49,11 @@ impl RatatuiLoading {
 
         let job_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(job))
             .unwrap_or_else(|_| Err(Error::new("Loading job panicked")));
+
+        let elapsed = start.elapsed();
+        if elapsed < min_display {
+            thread::sleep(min_display - elapsed);
+        }
 
         done.store(true, Ordering::Relaxed);
         let mut terminal = match handle.join() {
