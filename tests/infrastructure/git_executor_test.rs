@@ -1,5 +1,3 @@
-// Fakes - one per scenario, extremely specific
-
 use std::cell::RefCell;
 use std::path::Path;
 use std::rc::Rc;
@@ -103,7 +101,6 @@ impl FakeGitExecutorForWorktree {
     }
 }
 
-// Integration tests using fakes
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -19,10 +19,6 @@ impl SelectorRunner for StubSelector {
     }
 }
 
-// ===========================================================================
-// FakeSelector — returns configurable SelectionResult values from a queue
-// ===========================================================================
-
 pub struct FakeSelector {
     pub results: RefCell<Vec<SelectionResult>>,
 }
