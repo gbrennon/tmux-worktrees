@@ -10,12 +10,7 @@ mod common;
 
 use common::fakes::command_runner::FakeRunner;
 use std::sync::Mutex;
-use tmux_worktrees::core::error::Result;
 use tmux_worktrees::utils::ShellQuoter;
-
-// Isolated tmux test server — spawned once per test binary, shared by all
-// integration tests.  Uses a unique socket so it never touches the user's
-// real tmux server.
 
 /// Wraps [`SystemCommandRunner`] and prepends `-L <socket>` to every `tmux`
 /// invocation so all commands target the isolated test server.
@@ -40,7 +35,6 @@ impl CommandRunner for SocketRunner {
 /// installed or could not be started.
 static TEST_SOCKET: LazyLock<Option<String>> = LazyLock::new(|| {
     let socket = format!("tmux-worktrees-test-{}", std::process::id());
-    // Kill any leftover server from a previous run with the same PID
     let _ = Command::new("tmux")
         .args(["-L", &socket, "kill-server"])
         .output();
@@ -75,8 +69,6 @@ fn executor_for_test(socket: &str) -> TmuxExecutor {
     }))
 }
 
-// Tests that don't need a server
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -103,8 +95,6 @@ mod tests {
         let result = executor.resolve_shell_command();
         assert!(!result.is_empty());
     }
-
-    // Tests that target the isolated test server
 
     #[test]
     fn tmux_executor_can_run_command() {
@@ -234,9 +224,6 @@ mod tests {
         };
         let executor = executor_for_test(socket);
 
-        // With no client attached, `display-message -p #{pane_current_path}`
-        // exits non-zero, so current_pane_path() exercises the fallback to
-        // std::env::current_dir().  Both code paths are covered.
         let result = executor.current_pane_path().unwrap();
         assert!(!result.is_empty());
     }
@@ -251,10 +238,8 @@ mod tests {
         let marker = format!("isolated-{}", std::process::id());
         let executor = executor_for_test(socket);
 
-        // 1. Set marker on the ISOLATED server
         executor.run_ok(&["set-environment", "-g", "ISOLATED_MARKER", &marker]);
 
-        // 2. Read it back from the isolated server — MUST be present
         let (_, iso_stdout, _) = executor
             .run(&["show-environment", "-g", "ISOLATED_MARKER"])
             .unwrap();
@@ -263,7 +248,6 @@ mod tests {
             "marker not found on isolated server (socket={socket})"
         );
 
-        // 3. Read it from the USER'S real server — MUST NOT be present
         let real_output = Command::new("tmux")
             .args(["show-environment", "-g", "ISOLATED_MARKER"])
             .output();
@@ -276,7 +260,6 @@ mod tests {
             );
         }
 
-        // Clean up
         executor.run_ok(&["set-environment", "-gu", "ISOLATED_MARKER"]);
     }
 }

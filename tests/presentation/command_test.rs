@@ -1,5 +1,3 @@
-// Integration tests for the Command enum and InvalidCommand error.
-
 use tmux_worktrees::presentation::command::{Command, InvalidCommand};
 
 #[test]
@@ -50,6 +48,5 @@ fn invalid_command_display_shows_message() {
 #[test]
 fn invalid_command_is_std_error() {
     let err: Box<dyn std::error::Error> = Box::new(InvalidCommand("test".into()));
-    // Just verify it can be downcast — source() is None
     assert!(err.source().is_none());
 }

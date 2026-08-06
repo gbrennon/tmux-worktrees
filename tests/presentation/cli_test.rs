@@ -1,6 +1,3 @@
-// Integration tests for the Cli presentation layer.
-// Each fake covers exactly one scenario — no god objects.
-
 #[path = "../common/mod.rs"]
 mod common;
 
@@ -17,7 +14,6 @@ use tmux_worktrees::presentation::command::Command;
 use tmux_worktrees::presentation::loading_port::LoadingRunner;
 use tmux_worktrees::presentation::selector_port::SelectorRunner;
 
-// ===========================================================================
 fn cli_with(
     tmux: impl TmuxPort + 'static,
     git: impl GitPort + 'static,
@@ -43,10 +39,6 @@ fn cli_with_loading(
 fn cli_default(tmux: impl TmuxPort + 'static, git: impl GitPort + 'static) -> Cli {
     cli_with(tmux, git, StubSelector)
 }
-
-// ===========================================================================
-// parse_args tests
-// ===========================================================================
 
 #[test]
 fn parse_args_defaults_to_choose() {
@@ -107,20 +99,12 @@ fn unknown_command_defaults_to_choose() {
     assert_eq!(cmd, Command::Choose);
 }
 
-// ===========================================================================
-// dispatch tests
-// ===========================================================================
-
 #[test]
 fn dispatch_create_worktree_empty_branch_shows_error() {
     let cli = cli_default(FakeTmxShowError, StubGit);
     let result = cli.dispatch(Command::CreateWorktree, &[]);
     assert!(result.is_ok());
 }
-
-// ===========================================================================
-// run tests
-// ===========================================================================
 
 #[test]
 fn run_create_worktree_empty_branch_does_not_panic() {
@@ -141,10 +125,6 @@ fn run_interactive_from_non_tty_uses_popup_path() {
     unsafe { std::env::remove_var("TMUX_WORKTREES_ROOT") };
 }
 
-// ===========================================================================
-// spawn_in_popup tests
-// ===========================================================================
-
 #[test]
 fn spawn_in_popup_calls_display_popup_when_root_found() {
     let tmux = FakeTmxPopupOk::new();
@@ -155,20 +135,12 @@ fn spawn_in_popup_calls_display_popup_when_root_found() {
     assert!(guard.display_called.get());
 }
 
-// ===========================================================================
-// run_create
-// ===========================================================================
-
 #[test]
 fn run_create_shows_error_on_empty_branch() {
     let cli = cli_default(FakeTmxShowError, StubGit);
     let result = cli.run_create("");
     assert!(result.is_ok());
 }
-
-// ===========================================================================
-// create_workspace
-// ===========================================================================
 
 #[test]
 fn create_workspace_uses_origin_prefix_when_remote_exists() {
@@ -206,10 +178,6 @@ fn create_workspace_propagates_git_errors() {
     assert!(result.is_err());
 }
 
-// ===========================================================================
-// remove_workspace
-// ===========================================================================
-
 #[test]
 fn remove_workspace_skips_kill_window_when_branch_empty() {
     let cli = cli_default(StubTmx, FakeGitWorktreeRemove);
@@ -230,10 +198,6 @@ fn remove_workspace_propagates_git_error() {
     let result = cli.remove_workspace(Path::new("/tmp/repo"), Path::new("/tmp/ws"), "feat/x");
     assert!(result.is_err());
 }
-
-// ===========================================================================
-// workspace_branch
-// ===========================================================================
 
 #[test]
 fn workspace_branch_returns_question_mark_on_failure() {
@@ -259,10 +223,6 @@ fn workspace_branch_returns_detached_head() {
     assert_eq!(result.unwrap(), "HEAD\n");
 }
 
-// ===========================================================================
-// list_workspaces
-// ===========================================================================
-
 #[test]
 fn list_workspaces_returns_empty_on_nonzero_status() {
     let cli = cli_default(StubTmx, FakeGitWorktreeListFail);
@@ -282,10 +242,6 @@ fn list_workspaces_returns_worktree_paths() {
     assert!(paths.iter().any(|p| p.to_string_lossy().contains("fix-b")));
 }
 
-// ===========================================================================
-// list_workspace_names
-// ===========================================================================
-
 #[test]
 fn list_workspace_names_extracts_sorted_names() {
     let cli = cli_default(StubTmx, FakeGitWorktreeListOk);
@@ -294,10 +250,6 @@ fn list_workspace_names_extracts_sorted_names() {
     let names = result.unwrap();
     assert_eq!(names, vec!["feat-a", "fix-b"]);
 }
-
-// ===========================================================================
-// resolve_default_branch
-// ===========================================================================
 
 #[test]
 fn resolve_default_branch_uses_configured_values() {
@@ -323,19 +275,11 @@ fn resolve_default_branch_falls_back_to_current() {
     assert_eq!(result.unwrap(), "trunk");
 }
 
-// ===========================================================================
-// delete_branch
-// ===========================================================================
-
 #[test]
 fn delete_branch_does_not_panic() {
     let cli = cli_default(StubTmx, FakeGitBranchDelete);
     cli.delete_branch(Path::new("/tmp/repo"), "feat/x");
 }
-
-// ===========================================================================
-// find_repo_root
-// ===========================================================================
 
 #[test]
 fn find_repo_root_returns_non_empty_string() {
@@ -352,8 +296,6 @@ fn find_repo_root_is_idempotent() {
     let r2 = cli.find_repo_root().unwrap();
     assert_eq!(r1, r2);
 }
-// run_create success path — full flow through to select_or_create_window
-// ===========================================================================
 
 #[test]
 fn run_create_full_success_path() {
@@ -361,10 +303,6 @@ fn run_create_full_success_path() {
     let result = cli.dispatch(Command::CreateWorktree, &["test-branch".to_string()]);
     assert!(result.is_ok(), "expected Ok, got {result:?}");
 }
-
-// ===========================================================================
-// run error path — when dispatch returns Err, show_error is called
-// ===========================================================================
 
 /// Repo path for tests that rely on worktree list porcelain.
 const REPO: &str = "/home/gbrennon/Documents/repos/gbrennon/tmux-worktrees";
@@ -384,9 +322,6 @@ fn run_error_path_shows_error_when_dispatch_fails() {
         "show_error was not called on dispatch failure"
     );
 }
-// ===========================================================================
-// run_create error path — create_workspace fails → show_error
-// ===========================================================================
 
 #[test]
 fn run_create_shows_error_when_workspace_creation_fails() {
@@ -404,7 +339,6 @@ fn run_create_shows_error_when_workspace_creation_fails() {
     );
 }
 
-// ===========================================================================
 #[test]
 fn dispatch_choose_calls_run_choose_and_cancels() {
     let selector = FakeSelector::new(vec![SelectionResult::Cancelled]);
@@ -419,10 +353,6 @@ fn dispatch_choose_calls_run_choose_and_cancels() {
     let result = cli.dispatch(Command::Choose, &[]);
     assert!(result.is_ok(), "expected Ok, got {:?}", result);
 }
-
-// ===========================================================================
-// Test: dispatch calls run_cleanup
-// ===========================================================================
 
 #[test]
 fn dispatch_cleanup_calls_run_cleanup_and_cancels() {
@@ -439,10 +369,6 @@ fn dispatch_cleanup_calls_run_cleanup_and_cancels() {
     assert!(result.is_ok(), "expected Ok, got {:?}", result);
 }
 
-// ===========================================================================
-// Test: run_choose returns Ok when selector cancels
-// ===========================================================================
-
 #[test]
 fn run_choose_returns_cancelled() {
     let selector = FakeSelector::new(vec![SelectionResult::Cancelled]);
@@ -458,10 +384,6 @@ fn run_choose_returns_cancelled() {
     assert!(result.is_ok(), "expected Ok, got {:?}", result);
 }
 
-// ===========================================================================
-// Test: run_choose shows no-workspaces header when no workspaces
-// ===========================================================================
-
 #[test]
 fn run_choose_no_workspaces_shows_header_and_cancels() {
     let selector = FakeSelector::new(vec![SelectionResult::Cancelled]);
@@ -474,10 +396,6 @@ fn run_choose_no_workspaces_shows_header_and_cancels() {
     assert!(result.is_ok(), "expected Ok, got {:?}", result);
 }
 
-// ===========================================================================
-// Test: run_choose creates workspace when custom branch entered
-// ===========================================================================
-
 #[test]
 fn run_choose_creates_workspace_for_custom_branch() {
     let selector = FakeSelector::new(vec![SelectionResult::Custom("my-branch".into())]);
@@ -489,10 +407,6 @@ fn run_choose_creates_workspace_for_custom_branch() {
     let result = cli.run_choose();
     assert!(result.is_ok(), "expected Ok, got {:?}", result);
 }
-
-// ===========================================================================
-// Test: run_cleanup full success — removes workspace and deletes branch
-// ===========================================================================
 
 #[test]
 fn run_cleanup_removes_workspace_and_deletes_branch() {
@@ -516,10 +430,6 @@ fn run_cleanup_removes_workspace_and_deletes_branch() {
         msgs
     );
 }
-
-// ===========================================================================
-// Test: run_cleanup shows error when workspace removal fails
-// ===========================================================================
 
 #[test]
 fn run_cleanup_shows_error_on_removal_failure() {
@@ -550,10 +460,6 @@ fn run_cleanup_shows_error_on_removal_failure() {
     );
 }
 
-// ===========================================================================
-// Test: run_cleanup shows error when no workspaces found
-// ===========================================================================
-
 #[test]
 fn run_cleanup_empty_workspaces_shows_message() {
     let tmux = FakeTmxTest::new(REPO);
@@ -571,10 +477,6 @@ fn run_cleanup_empty_workspaces_shows_message() {
         "show_error should have been called for empty workspaces"
     );
 }
-
-// ===========================================================================
-// Test: loading indicator shown during slow operations
-// ===========================================================================
 
 #[test]
 fn run_cleanup_shows_loading_during_fetch() {
