@@ -62,6 +62,7 @@ impl Cli {
                 self.run_create(rest.first().map(String::as_str).unwrap_or_default())
             }
             Command::Cleanup => self.run_cleanup(),
+            Command::DemoLoading => self.run_demo_loading(),
         }
     }
 
@@ -269,6 +270,17 @@ impl Cli {
             .tmux
             .run(&["display-message", &format!("Removed workspace: {branch}")]);
         Ok(())
+    }
+
+    /// Show the loading indicator for 3 seconds — purely for visual verification.
+    pub fn run_demo_loading(&self) -> Result<()> {
+        self.loading.run_loading(
+            "Demo: loading indicator test…",
+            Box::new(|| {
+                std::thread::sleep(std::time::Duration::from_secs(3));
+                Ok(())
+            }),
+        )
     }
 
     pub fn find_repo_root(&self) -> Result<String> {

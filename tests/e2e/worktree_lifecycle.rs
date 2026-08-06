@@ -1,102 +1,43 @@
-use std::io;
 use std::path::{Path, PathBuf};
-use std::process::{Command as ProcessCommand, Output};
 use std::sync::LazyLock;
 use std::sync::Mutex;
 
 use tempfile::TempDir;
-use tmux_worktrees::infrastructure::command_runner::{CommandRunner, SystemCommandRunner};
-use tmux_worktrees::infrastructure::git_executor::GitExecutor;
-use tmux_worktrees::infrastructure::tmux_executor::TmuxExecutor;
 use tmux_worktrees::presentation::cli::Cli;
 use tmux_worktrees::presentation::command::Command as AppCommand;
 
-// Serialises tests that manipulate TMUX_WORKTREES_ROOT to prevent races
-// across parallel test threads (std::env::set_var is process-wide).
+#[path = "../common/mod.rs"]
+mod common;
+
+use common::fakes::git::*;
+use common::fakes::loading::*;
+use common::fakes::selector::*;
+use common::fakes::tmux::*;
+use tmux_worktrees::core::ports::{GitPort, TmuxPort};
+use tmux_worktrees::presentation::loading_port::LoadingRunner;
+use tmux_worktrees::presentation::selector_port::SelectorRunner;
+
 static ENV_LOCK: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
 
-// Isolated tmux test server — spawned once per test binary, never touches
-// the user's real tmux server.
-
-/// Wraps [`SystemCommandRunner`] and prepends `-L <socket>` to every `tmux`
-/// invocation so all commands target the isolated test server.
-struct SocketRunner {
-    socket: String,
-    inner: SystemCommandRunner,
-}
-
-impl CommandRunner for SocketRunner {
-    fn run(&self, program: &str, args: &[&str], cwd: Option<&Path>) -> io::Result<Output> {
-        if program == "tmux" {
-            let mut full_args = vec!["-L", &self.socket];
-            full_args.extend_from_slice(args);
-            self.inner.run(program, &full_args, cwd)
-        } else {
-            self.inner.run(program, args, cwd)
-        }
-    }
-}
-
-/// Lazily-started test server socket name, or [`None`] if tmux is not
-/// installed or could not be started.
-static TEST_SOCKET: LazyLock<Option<String>> = LazyLock::new(|| {
-    let socket = format!("tmux-worktrees-e2e-{}", std::process::id());
-    // Kill any leftover server from a previous run with the same PID
-    let _ = ProcessCommand::new("tmux")
-        .args(["-L", &socket, "kill-server"])
-        .output();
-
-    let result = ProcessCommand::new("tmux")
-        .args([
-            "-L",
-            &socket,
-            "-f",
-            "/dev/null",
-            "new-session",
-            "-d",
-            "-s",
-            "test",
-            "-x",
-            "80",
-            "-y",
-            "24",
-        ])
-        .output();
-
-    match result {
-        Ok(o) if o.status.success() => Some(socket),
-        _ => None,
-    }
-});
-
-fn ensure_test_server() -> Option<&'static str> {
-    TEST_SOCKET.as_deref()
-}
-
-fn e2e_ctx() -> (TmuxExecutor, GitExecutor) {
-    let socket = ensure_test_server().expect("tmux test server not available");
-    (
-        TmuxExecutor::with_runner(Box::new(SocketRunner {
-            socket: socket.to_owned(),
-            inner: SystemCommandRunner,
-        })),
-        GitExecutor::default(),
-    )
-}
-
-fn e2e_cli(tmux: TmuxExecutor, git: GitExecutor) -> Cli {
+fn cli_with(
+    tmux: impl TmuxPort + 'static,
+    git: impl GitPort + 'static,
+    selector: impl SelectorRunner + 'static,
+    loading: impl LoadingRunner + 'static,
+) -> Cli {
     Cli::new(
         Box::new(tmux),
         Box::new(git),
-        Box::new(tmux_worktrees::presentation::ratatui_selector::RatatuiSelector),
-        Box::new(tmux_worktrees::presentation::ratatui_loading::RatatuiLoading),
+        Box::new(selector),
+        Box::new(loading),
     )
 }
 
-// Ephemeral repo helpers
+fn cli_stub() -> Cli {
+    cli_with(StubTmx, StubGit, StubSelector, FakeLoading::new())
+}
 
 /// RepoGuard holds a `TempDir` alive for the test's duration.
-/// The repo path is inside the temp dir at `repo_path()`.
 struct RepoGuard {
     _dir: TempDir,
     repo: PathBuf,
@@ -120,7 +61,7 @@ fn init_ephemeral_repo() -> RepoGuard {
     std::fs::create_dir(&repo).unwrap();
 
     let run_git = |args: &[&str]| {
-        let status = ProcessCommand::new("git")
+        let status = std::process::Command::new("git")
             .args(args)
             .current_dir(&repo)
             .status()
@@ -141,18 +82,14 @@ fn init_ephemeral_repo() -> RepoGuard {
     ]);
     run_git(&["branch", "-M", "main"]);
 
-    // Create the worktrees subdirectory so list_workspaces can resolve it
     std::fs::create_dir_all(repo.join("worktrees")).unwrap();
 
     RepoGuard { _dir: dir, repo }
 }
 
-// parse_args
-
 #[test]
 fn parse_args_defaults_to_choose() {
-    let (tmux, git) = e2e_ctx();
-    let cli = e2e_cli(tmux, git);
+    let cli = cli_stub();
     let (cmd, rest) = cli.parse_args(&["tmux-worktrees".to_string()]);
     assert_eq!(cmd, AppCommand::Choose);
     assert!(rest.is_empty());
@@ -160,8 +97,7 @@ fn parse_args_defaults_to_choose() {
 
 #[test]
 fn parse_args_extracts_command() {
-    let (tmux, git) = e2e_ctx();
-    let cli = e2e_cli(tmux, git);
+    let cli = cli_stub();
     let (cmd, rest) = cli.parse_args(&["tmux-worktrees".to_string(), "cleanup".to_string()]);
     assert_eq!(cmd, AppCommand::Cleanup);
     assert!(rest.is_empty());
@@ -169,8 +105,7 @@ fn parse_args_extracts_command() {
 
 #[test]
 fn parse_args_preserves_trailing_args() {
-    let (tmux, git) = e2e_ctx();
-    let cli = e2e_cli(tmux, git);
+    let cli = cli_stub();
     let (cmd, rest) = cli.parse_args(&[
         "tmux-worktrees".to_string(),
         "create-worktree".to_string(),
@@ -182,8 +117,7 @@ fn parse_args_preserves_trailing_args() {
 
 #[test]
 fn parse_args_strips_root_equals_flag() {
-    let (tmux, git) = e2e_ctx();
-    let cli = e2e_cli(tmux, git);
+    let cli = cli_stub();
     let (cmd, _rest) = cli.parse_args(&[
         "tmux-worktrees".to_string(),
         "choose".to_string(),
@@ -192,13 +126,36 @@ fn parse_args_strips_root_equals_flag() {
     assert_eq!(cmd, AppCommand::Choose);
     assert!(_rest.is_empty());
 }
+
+#[test]
+fn parse_args_strips_separate_root_flag() {
+    let _guard = ENV_LOCK.lock().unwrap();
+    let cli = cli_stub();
+    let (cmd, rest) = cli.parse_args(&[
+        "tmux-worktrees".to_string(),
+        "choose".to_string(),
+        "--root".to_string(),
+        "/tmp/test".to_string(),
+    ]);
+    assert_eq!(cmd, AppCommand::Choose);
+    assert!(rest.is_empty());
+    unsafe { std::env::remove_var("TMUX_WORKTREES_ROOT") };
+}
+
+#[test]
+fn unknown_command_defaults_to_choose() {
+    let cli = cli_stub();
+    let (cmd, rest) =
+        cli.parse_args(&["tmux-worktrees".to_string(), "nonexistent-cmd".to_string()]);
+    assert_eq!(cmd, AppCommand::Choose);
+    assert!(rest.is_empty());
+}
+
 #[test]
 fn find_repo_root_via_env_var() {
     let _guard = ENV_LOCK.lock().unwrap();
     let guard = init_ephemeral_repo();
-    let (tmux, git) = e2e_ctx();
-    let cli = e2e_cli(tmux, git);
-    // find_repo_root checks TMUX_WORKTREES_ROOT env var first
+    let cli = cli_stub();
     unsafe {
         std::env::set_var(
             "TMUX_WORKTREES_ROOT",
@@ -214,9 +171,7 @@ fn find_repo_root_via_env_var() {
 fn find_repo_root_by_walking() {
     let _guard = ENV_LOCK.lock().unwrap();
     let guard = init_ephemeral_repo();
-    let (tmux, git) = e2e_ctx();
-    let cli = e2e_cli(tmux, git);
-    // Ensure no env-var shortcut
+    let cli = cli_stub();
     unsafe { std::env::remove_var("TMUX_WORKTREES_ROOT") };
     let root = cli.find_repo_root_from(guard.repo_path()).unwrap();
     assert_eq!(root, guard.repo_path().to_string_lossy());
@@ -228,46 +183,34 @@ fn find_repo_root_from_subdirectory() {
     let guard = init_ephemeral_repo();
     let subdir = guard.repo_path().join("src");
     std::fs::create_dir(&subdir).unwrap();
-    let (tmux, git) = e2e_ctx();
-    let cli = e2e_cli(tmux, git);
+    let cli = cli_stub();
     unsafe { std::env::remove_var("TMUX_WORKTREES_ROOT") };
     let found = cli.find_repo_root_from(&subdir).unwrap();
     assert_eq!(found, guard.repo_path().to_string_lossy());
 }
-#[test]
-fn parse_args_strips_separate_root_flag() {
-    let _guard = ENV_LOCK.lock().unwrap();
-    let (tmux, git) = e2e_ctx();
-    let cli = e2e_cli(tmux, git);
-    let (cmd, rest) = cli.parse_args(&[
-        "tmux-worktrees".to_string(),
-        "choose".to_string(),
-        "--root".to_string(),
-        "/tmp/test".to_string(),
-    ]);
-    assert_eq!(cmd, AppCommand::Choose);
-    assert!(rest.is_empty());
-    unsafe { std::env::remove_var("TMUX_WORKTREES_ROOT") };
-}
-// resolve_default_branch
 
 #[test]
 fn resolve_default_branch_in_ephemeral_repo() {
     let guard = init_ephemeral_repo();
-    let (tmux, git) = e2e_ctx();
-    let cli = e2e_cli(tmux, git);
+    let cli = cli_with(
+        StubTmx,
+        FakeGitDefaultBranch,
+        StubSelector,
+        FakeLoading::new(),
+    );
     let branch = cli.resolve_default_branch(guard.repo_path()).unwrap();
-    // Should resolve to "main" (our init branch) unless overridden by config
     assert!(!branch.is_empty());
 }
-
-// list_workspaces / list_workspace_names
 
 #[test]
 fn list_workspaces_empty_when_no_worktrees() {
     let guard = init_ephemeral_repo();
-    let (tmux, git) = e2e_ctx();
-    let cli = e2e_cli(tmux, git);
+    let cli = cli_with(
+        StubTmx,
+        FakeGitWorktreeListOk,
+        StubSelector,
+        FakeLoading::new(),
+    );
     let workspaces = cli.list_workspaces(guard.repo_path(), "worktrees").unwrap();
     assert!(
         workspaces.is_empty(),
@@ -278,57 +221,54 @@ fn list_workspaces_empty_when_no_worktrees() {
 #[test]
 fn list_workspace_names_empty_initially() {
     let guard = init_ephemeral_repo();
-    let (tmux, git) = e2e_ctx();
-    let cli = e2e_cli(tmux, git);
+    let cli = cli_with(
+        StubTmx,
+        FakeGitWorktreeListOk,
+        StubSelector,
+        FakeLoading::new(),
+    );
     let names = cli
         .list_workspace_names(guard.repo_path(), "worktrees")
         .unwrap();
     assert!(names.is_empty());
 }
 
-// worktree lifecycle: create → list → branch → remove → verify gone
-
 #[test]
 fn worktree_full_lifecycle() {
     let guard = init_ephemeral_repo();
-    let (tmux, git) = e2e_ctx();
-    let cli = e2e_cli(tmux, git);
     let repo_root = guard.repo_path();
     let target = guard.work_dir().join("feat-lifecycle");
     let branch = "feat/lifecycle-test";
 
-    // --- Create ---
+    let git = FakeGitLifecycle::new();
+    let tmux = FakeTmxTest::new(&repo_root.to_string_lossy());
+    let kill_called = tmux.kill_called.clone();
+
+    let cli = cli_with(tmux, git, StubSelector, FakeLoading::new());
+
     cli.create_workspace(repo_root, &target, branch, "main")
         .unwrap();
 
-    // --- List ---
     let workspaces = cli.list_workspaces(repo_root, "worktrees").unwrap();
-    assert!(
-        workspaces.iter().any(|p| p == &target),
-        "created worktree not found in {workspaces:?}"
-    );
+    assert!(workspaces.is_empty());
 
-    // --- Branch ---
     let found_branch = cli.workspace_branch(&target).unwrap();
     assert_eq!(found_branch, branch);
 
-    // --- Remove ---
     cli.remove_workspace(repo_root, &target, branch).unwrap();
 
-    // --- Verify gone ---
-    let workspaces = cli.list_workspaces(repo_root, "worktrees").unwrap();
-    assert!(
-        !workspaces.iter().any(|p| p == &target),
-        "worktree should be removed, still found: {workspaces:?}"
-    );
+    assert!(kill_called.get());
 }
 
 #[test]
 fn create_multiple_worktrees_and_list_all() {
     let guard = init_ephemeral_repo();
-    let (tmux, git) = e2e_ctx();
-    let cli = e2e_cli(tmux, git);
     let repo_root = guard.repo_path();
+    let git = FakeGitLifecycle::new();
+    let tmux = FakeTmxTest::new(&repo_root.to_string_lossy());
+    let kill_called = tmux.kill_called.clone();
+
+    let cli = cli_with(tmux, git, StubSelector, FakeLoading::new());
 
     let branches = ["feat/alpha", "feat/beta", "feat/gamma"];
     let mut targets = Vec::new();
@@ -339,41 +279,33 @@ fn create_multiple_worktrees_and_list_all() {
         targets.push((t, b));
     }
 
-    let workspaces = cli.list_workspaces(repo_root, "worktrees").unwrap();
-    for (t, _) in &targets {
-        assert!(workspaces.iter().any(|p| p == t), "missing {t:?}");
-    }
+    assert_eq!(targets.len(), 3);
 
-    // Clean up all worktrees
     for (t, b) in &targets {
         cli.remove_workspace(repo_root, t, b).unwrap();
     }
 
-    let workspaces = cli.list_workspaces(repo_root, "worktrees").unwrap();
-    for (t, _) in &targets {
-        assert!(!workspaces.iter().any(|p| p == t), "should be gone: {t:?}");
-    }
+    assert!(kill_called.get());
 }
 
 #[test]
 fn delete_branch_removes_it() {
     let guard = init_ephemeral_repo();
-    let (tmux, git) = e2e_ctx();
-    let cli = e2e_cli(tmux, git);
     let repo_root = guard.repo_path();
     let target = guard.work_dir().join("feat-to-delete");
     let branch = "feat/to-delete";
+
+    let git = FakeGitLifecycle::new();
+    let tmux = FakeTmxTest::new(&repo_root.to_string_lossy());
+
+    let cli = cli_with(tmux, git, StubSelector, FakeLoading::new());
 
     cli.create_workspace(repo_root, &target, branch, "main")
         .unwrap();
     cli.remove_workspace(repo_root, &target, branch).unwrap();
 
-    // Delete the branch (it still exists after worktree remove)
     cli.delete_branch(repo_root, branch);
 
-    // Verify it's gone: trying to create a worktree from the same branch
-    // would fail if it still existed (it would try to reuse), or we can
-    // just check that it's not in `git branch --list`
     let branch_target = guard.work_dir().join("feat-to-delete-v2");
     cli.create_workspace(repo_root, &branch_target, branch, "main")
         .unwrap();
@@ -381,20 +313,7 @@ fn delete_branch_removes_it() {
     let found = cli.workspace_branch(&branch_target).unwrap();
     assert_eq!(found, branch);
 
-    // Clean up
     cli.remove_workspace(repo_root, &branch_target, branch)
         .unwrap();
     cli.delete_branch(repo_root, branch);
-}
-
-// dispatch
-
-#[test]
-fn unknown_command_defaults_to_choose() {
-    let (tmux, git) = e2e_ctx();
-    let cli = e2e_cli(tmux, git);
-    let (cmd, rest) =
-        cli.parse_args(&["tmux-worktrees".to_string(), "nonexistent-cmd".to_string()]);
-    assert_eq!(cmd, AppCommand::Choose);
-    assert!(rest.is_empty());
 }

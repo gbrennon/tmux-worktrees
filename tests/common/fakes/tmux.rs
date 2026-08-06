@@ -5,10 +5,6 @@ use std::rc::Rc;
 use tmux_worktrees::core::error::Result;
 use tmux_worktrees::core::ports::TmuxPort;
 
-// ===========================================================================
-// Stub fakes — unused methods panic
-// ===========================================================================
-
 pub struct StubTmx;
 impl TmuxPort for StubTmx {
     fn show_error(&self, _msg: &str) -> Result<()> {
@@ -43,10 +39,6 @@ impl TmuxPort for StubTmx {
     }
 }
 
-// ===========================================================================
-// run_create("") → show_error
-// ===========================================================================
-
 pub struct FakeTmxShowError;
 impl TmuxPort for FakeTmxShowError {
     fn show_error(&self, _msg: &str) -> Result<()> {
@@ -80,11 +72,6 @@ impl TmuxPort for FakeTmxShowError {
         unimplemented!()
     }
 }
-
-// ===========================================================================
-// run(): interactive command triggered from non-TTY stdin
-// spawn_in_popup → find_repo_root succeeds → display_popup called → Ok
-// ===========================================================================
 
 #[derive(Clone)]
 pub struct FakeTmxNonTty {
@@ -131,11 +118,6 @@ impl TmuxPort for FakeTmxNonTty {
     }
 }
 
-// ===========================================================================
-// run_create success: needs resolve_workspace_dir, resolve_shell_command,
-// select_or_create_window
-// ===========================================================================
-
 pub struct FakeTmxCreateSuccess;
 impl TmuxPort for FakeTmxCreateSuccess {
     fn show_error(&self, _msg: &str) -> Result<()> {
@@ -169,10 +151,6 @@ impl TmuxPort for FakeTmxCreateSuccess {
         unimplemented!()
     }
 }
-
-// ===========================================================================
-// kill_window — window exists → killed
-// ===========================================================================
 
 pub struct FakeTmxWithWindow;
 impl TmuxPort for FakeTmxWithWindow {
@@ -216,10 +194,6 @@ impl TmuxPort for FakeTmxWithWindow {
         Ok(".".to_string())
     }
 }
-
-// ===========================================================================
-// kill_window — no matching window → no-op
-// ===========================================================================
 
 pub struct FakeTmxNoWindow;
 impl TmuxPort for FakeTmxNoWindow {
@@ -266,10 +240,6 @@ impl TmuxPort for FakeTmxNoWindow {
     }
 }
 
-// ===========================================================================
-// spawn_in_popup — display_popup called when find_repo_root succeeds
-// ===========================================================================
-
 #[derive(Clone)]
 pub struct FakeTmxPopupOk {
     pub display_called: std::rc::Rc<std::cell::Cell<bool>>,
@@ -314,10 +284,6 @@ impl TmuxPort for FakeTmxPopupOk {
         unimplemented!()
     }
 }
-
-// ===========================================================================
-// run_create full success path — select_or_create_window fails → run() shows error
-// ===========================================================================
 
 #[derive(Clone)]
 pub struct FakeTmxWindowFail {
@@ -365,10 +331,6 @@ impl TmuxPort for FakeTmxWindowFail {
         unimplemented!()
     }
 }
-
-// ===========================================================================
-// FakeTmxTest — generic TmuxPort for most tests
-// ===========================================================================
 
 pub struct FakeTmxTest {
     pub kill_called: Rc<Cell<bool>>,

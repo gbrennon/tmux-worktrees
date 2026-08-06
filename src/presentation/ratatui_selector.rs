@@ -173,7 +173,6 @@ mod tests {
     fn push_events(events: Vec<crossterm::event::Event>) {
         EVENTS.with(|e| {
             let mut q = e.borrow_mut();
-            // Push in reverse so pop() yields FIFO order.
             for ev in events.into_iter().rev() {
                 q.push(ev);
             }
@@ -239,8 +238,6 @@ mod tests {
         })
     }
 
-    // -- FakeTerminal ------------------------------------------------------
-
     struct FakeTerminal;
 
     impl TerminalBackend for FakeTerminal {
@@ -289,8 +286,6 @@ mod tests {
         }
     }
 
-    // -- helper ------------------------------------------------------------
-
     fn run_with_fake(
         selector: &mut Selector,
         prompt: &str,
@@ -298,8 +293,6 @@ mod tests {
     ) -> Result<SelectionResult> {
         RatatuiSelector::run_with_backend(&FakeTerminal, selector, &[], prompt, header)
     }
-
-    // -- tests -------------------------------------------------------------
 
     #[test]
     fn setup_fails_without_tty() {
@@ -334,7 +327,6 @@ mod tests {
     #[test]
     fn custom_value_on_enter_with_empty_items() {
         reset_fake_state();
-        // Type "hello" then Enter.
         push_events(vec![
             key_char('h'),
             key_char('e'),
@@ -352,9 +344,6 @@ mod tests {
     #[test]
     fn filters_items_and_selects_correct_index() {
         reset_fake_state();
-        // Type "ba" then Enter -> should match "bar" (index 1) and "baz"
-        // (index 2).  selected_index = 0 after typing, so Enter selects
-        // the first match which is index 1 in the original list.
         push_events(vec![key_char('b'), key_char('a'), key_enter()]);
 
         let mut selector = Selector::new(vec!["foo".into(), "bar".into(), "baz".into()], false);
@@ -366,7 +355,6 @@ mod tests {
     fn draw_error_propagates() {
         reset_fake_state();
         set_draw_fails(true);
-        // Push an Enter so we at least get through one draw cycle.
         push_events(vec![key_enter()]);
 
         let mut selector = Selector::new(vec!["x".into()], false);
@@ -387,7 +375,6 @@ mod tests {
     #[test]
     fn down_arrow_moves_selection_then_enter_selects_second() {
         reset_fake_state();
-        // Down -> Enter should select item at index 1.
         push_events(vec![key_down(), key_enter()]);
 
         let mut selector = Selector::new(vec!["first".into(), "second".into()], false);
@@ -398,7 +385,6 @@ mod tests {
     #[test]
     fn up_arrow_wraps_and_stays_at_first() {
         reset_fake_state();
-        // Up from index 0 saturates to 0, then Enter selects index 0.
         push_events(vec![key_up(), key_enter()]);
 
         let mut selector = Selector::new(vec!["a".into(), "b".into()], false);
@@ -409,8 +395,6 @@ mod tests {
     #[test]
     fn ctrl_u_clears_query() {
         reset_fake_state();
-        // Type "xyz", then Ctrl+U, then Enter -> all items visible,
-        // selects index 0.
         push_events(vec![
             key_char('x'),
             key_char('y'),
@@ -427,7 +411,6 @@ mod tests {
     #[test]
     fn backspace_erases_last_char() {
         reset_fake_state();
-        // Type "f" then Backspace then Enter -> query is empty -> selects index 0.
         push_events(vec![
             key_char('f'),
             key_event(crossterm::event::KeyCode::Backspace),

@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use crate::core::error::{Error, Result};
 use ratatui::{Frame, Terminal, backend::Backend};
 
@@ -20,6 +22,12 @@ pub(crate) trait TerminalBackend {
     fn read_event(&self) -> Result<crossterm::event::Event>;
 
     fn restore(&self, terminal: &mut Terminal<Self::Term>) -> Result<()>;
+
+    /// Minimum time the loading animation stays visible so users can see it
+    /// even when the wrapped job completes near-instantly.
+    fn min_display(&self) -> Duration {
+        Duration::ZERO
+    }
 }
 
 pub(crate) struct RealTerminal;
@@ -45,5 +53,9 @@ impl TerminalBackend for RealTerminal {
         crossterm::execute!(std::io::stdout(), crossterm::terminal::LeaveAlternateScreen)?;
         terminal.show_cursor()?;
         Ok(())
+    }
+
+    fn min_display(&self) -> Duration {
+        Duration::from_millis(600)
     }
 }

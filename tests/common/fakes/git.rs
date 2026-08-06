@@ -1,12 +1,9 @@
 #![allow(dead_code)]
+use std::cell::RefCell;
 use std::path::Path;
 
 use tmux_worktrees::core::error::Result;
 use tmux_worktrees::core::ports::GitPort;
-
-// ===========================================================================
-// Stub fakes — unused methods panic
-// ===========================================================================
 
 pub struct StubGit;
 impl GitPort for StubGit {
@@ -17,10 +14,6 @@ impl GitPort for StubGit {
         unimplemented!()
     }
 }
-
-// ===========================================================================
-// create_workspace — worktree add succeeds (show-ref succeeds too)
-// ===========================================================================
 
 pub struct FakeGitWorktreeAdd;
 impl GitPort for FakeGitWorktreeAdd {
@@ -36,10 +29,6 @@ impl GitPort for FakeGitWorktreeAdd {
     }
 }
 
-// ===========================================================================
-// create_workspace — all git commands fail
-// ===========================================================================
-
 pub struct FakeGitWorktreeFail;
 impl GitPort for FakeGitWorktreeFail {
     fn run_in(&self, _d: &Path, args: &[&str]) -> Result<(i32, String, String)> {
@@ -53,10 +42,6 @@ impl GitPort for FakeGitWorktreeFail {
         Ok(())
     }
 }
-
-// ===========================================================================
-// create_workspace — show-ref FAILS (no remote); local base used
-// ===========================================================================
 
 pub struct FakeGitWorktreeAddLocal;
 impl GitPort for FakeGitWorktreeAddLocal {
@@ -72,10 +57,6 @@ impl GitPort for FakeGitWorktreeAddLocal {
     }
 }
 
-// ===========================================================================
-// remove_workspace — git succeeds
-// ===========================================================================
-
 pub struct FakeGitWorktreeRemove;
 impl GitPort for FakeGitWorktreeRemove {
     fn run_in(&self, _d: &Path, args: &[&str]) -> Result<(i32, String, String)> {
@@ -88,10 +69,6 @@ impl GitPort for FakeGitWorktreeRemove {
         unimplemented!()
     }
 }
-
-// ===========================================================================
-// remove_workspace — git fails
-// ===========================================================================
 
 pub struct FakeGitWorktreeRemoveFail;
 impl GitPort for FakeGitWorktreeRemoveFail {
@@ -106,10 +83,6 @@ impl GitPort for FakeGitWorktreeRemoveFail {
     }
 }
 
-// ===========================================================================
-// workspace_branch — rev-parse fails
-// ===========================================================================
-
 pub struct FakeGitRevParseFail;
 impl GitPort for FakeGitRevParseFail {
     fn run_in(&self, _d: &Path, args: &[&str]) -> Result<(i32, String, String)> {
@@ -122,10 +95,6 @@ impl GitPort for FakeGitRevParseFail {
         unimplemented!()
     }
 }
-
-// ===========================================================================
-// workspace_branch — succeeds
-// ===========================================================================
 
 pub struct FakeGitRevParseOk;
 impl GitPort for FakeGitRevParseOk {
@@ -140,10 +109,6 @@ impl GitPort for FakeGitRevParseOk {
     }
 }
 
-// ===========================================================================
-// workspace_branch — detached HEAD
-// ===========================================================================
-
 pub struct FakeGitRevParseDetached;
 impl GitPort for FakeGitRevParseDetached {
     fn run_in(&self, _d: &Path, args: &[&str]) -> Result<(i32, String, String)> {
@@ -157,10 +122,6 @@ impl GitPort for FakeGitRevParseDetached {
     }
 }
 
-// ===========================================================================
-// list_workspaces — porcelain fails
-// ===========================================================================
-
 pub struct FakeGitWorktreeListFail;
 impl GitPort for FakeGitWorktreeListFail {
     fn run_in(&self, _d: &Path, args: &[&str]) -> Result<(i32, String, String)> {
@@ -173,10 +134,6 @@ impl GitPort for FakeGitWorktreeListFail {
         unimplemented!()
     }
 }
-
-// ===========================================================================
-// list_workspaces — returns paths
-// ===========================================================================
 
 pub struct FakeGitWorktreeListOk;
 impl GitPort for FakeGitWorktreeListOk {
@@ -193,10 +150,6 @@ impl GitPort for FakeGitWorktreeListOk {
     }
 }
 
-// ===========================================================================
-// resolve_default_branch — both global and local config succeed
-// ===========================================================================
-
 pub struct FakeGitDefaultBranch;
 impl GitPort for FakeGitDefaultBranch {
     fn run_in(&self, _d: &Path, args: &[&str]) -> Result<(i32, String, String)> {
@@ -211,10 +164,6 @@ impl GitPort for FakeGitDefaultBranch {
         unimplemented!()
     }
 }
-
-// ===========================================================================
-// resolve_default_branch — global fails, local succeeds
-// ===========================================================================
 
 pub struct FakeGitBranchLocalOnly;
 impl GitPort for FakeGitBranchLocalOnly {
@@ -231,10 +180,6 @@ impl GitPort for FakeGitBranchLocalOnly {
     }
 }
 
-// ===========================================================================
-// resolve_default_branch — both global and local fail, falls through to current
-// ===========================================================================
-
 pub struct FakeGitBranchFallbackCurrent;
 impl GitPort for FakeGitBranchFallbackCurrent {
     fn run_in(&self, _d: &Path, args: &[&str]) -> Result<(i32, String, String)> {
@@ -250,10 +195,6 @@ impl GitPort for FakeGitBranchFallbackCurrent {
     }
 }
 
-// ===========================================================================
-// delete_branch — silent_in succeeds
-// ===========================================================================
-
 pub struct FakeGitBranchDelete;
 impl GitPort for FakeGitBranchDelete {
     fn run_in(&self, _d: &Path, _a: &[&str]) -> Result<(i32, String, String)> {
@@ -264,10 +205,6 @@ impl GitPort for FakeGitBranchDelete {
     }
 }
 
-// ===========================================================================
-// Combined GitPort fake — handles config, symbolic-ref, and worktree ops
-// ===========================================================================
-
 pub struct FakeGitCreate;
 impl GitPort for FakeGitCreate {
     fn run_in(&self, _dir: &Path, args: &[&str]) -> Result<(i32, String, String)> {
@@ -276,10 +213,8 @@ impl GitPort for FakeGitCreate {
         } else if args.contains(&"--show-current") {
             Ok((0, "main".into(), String::new()))
         } else if args.contains(&"show-ref") {
-            // Remote branch doesn't exist → fall through to use local "main"
             Ok((1, String::new(), String::new()))
         } else if args.contains(&"worktree") && args.contains(&"add") {
-            // Worktree add succeeds
             Ok((0, String::new(), String::new()))
         } else {
             unimplemented!("unexpected run_in args: {args:?}")
@@ -289,10 +224,6 @@ impl GitPort for FakeGitCreate {
         Ok(())
     }
 }
-
-// ===========================================================================
-// FakeGitPorcelain — handles only worktree list --porcelain
-// ===========================================================================
 
 pub struct FakeGitPorcelain {
     pub output: String,
@@ -315,10 +246,6 @@ impl GitPort for FakeGitPorcelain {
         Ok(())
     }
 }
-
-// ===========================================================================
-// FakeGitForCleanup — handles all commands needed by run_cleanup
-// ===========================================================================
 
 pub struct FakeGitForCleanup {
     pub porcelain: String,
@@ -372,10 +299,6 @@ impl GitPort for FakeGitForCleanup {
     }
 }
 
-// ===========================================================================
-// FakeGitForChoose — handles porcelain + full run_create flow
-// ===========================================================================
-
 pub struct FakeGitForChoose {
     repo_path: String,
 }
@@ -410,5 +333,55 @@ impl GitPort for FakeGitForChoose {
     }
     fn silent_in(&self, _d: &Path, _a: &[&str]) -> Result<()> {
         Ok(())
+    }
+}
+
+pub struct FakeGitLifecycle {
+    pub porcelain: RefCell<String>,
+    pub branch_name: RefCell<String>,
+}
+
+impl FakeGitLifecycle {
+    pub fn new() -> Self {
+        Self {
+            porcelain: RefCell::new(String::new()),
+            branch_name: RefCell::new("feat/lifecycle-test".into()),
+        }
+    }
+
+    pub fn set_porcelain(&self, output: &str) {
+        *self.porcelain.borrow_mut() = output.to_string();
+    }
+
+    pub fn set_branch(&self, name: &str) {
+        *self.branch_name.borrow_mut() = name.to_string();
+    }
+}
+
+impl GitPort for FakeGitLifecycle {
+    fn run_in(&self, _d: &Path, args: &[&str]) -> Result<(i32, String, String)> {
+        match args {
+            ["show-ref", "--verify", "--quiet", _] => Ok((1, String::new(), String::new())),
+            ["worktree", "add", _, "-b", branch, _] => {
+                *self.branch_name.borrow_mut() = branch.to_string();
+                Ok((0, String::new(), String::new()))
+            }
+            ["worktree", "list", "--porcelain"] => {
+                Ok((0, self.porcelain.borrow().clone(), String::new()))
+            }
+            ["rev-parse", "--abbrev-ref", "HEAD"] => {
+                Ok((0, self.branch_name.borrow().clone(), String::new()))
+            }
+            ["worktree", "remove", "--force", _] => Ok((0, String::new(), String::new())),
+            _ => unimplemented!("unexpected git run_in: {:?}", args),
+        }
+    }
+
+    fn silent_in(&self, _d: &Path, args: &[&str]) -> Result<()> {
+        match args {
+            ["fetch", "origin", "--quiet"] => Ok(()),
+            ["branch", "-D", _] => Ok(()),
+            _ => unimplemented!("unexpected git silent_in: {:?}", args),
+        }
     }
 }

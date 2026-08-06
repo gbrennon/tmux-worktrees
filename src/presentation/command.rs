@@ -7,6 +7,7 @@ pub enum Command {
     Choose,
     CreateWorktree,
     Cleanup,
+    DemoLoading,
 }
 
 /// Returned when a command string does not match any variant.
@@ -29,6 +30,7 @@ impl FromStr for Command {
             "choose" => Ok(Self::Choose),
             "create-worktree" => Ok(Self::CreateWorktree),
             "cleanup" => Ok(Self::Cleanup),
+            "demo-loading" => Ok(Self::DemoLoading),
             other => Err(InvalidCommand(other.to_string())),
         }
     }
@@ -41,11 +43,12 @@ impl Command {
             Self::Choose => "choose",
             Self::CreateWorktree => "create-worktree",
             Self::Cleanup => "cleanup",
+            Self::DemoLoading => "demo-loading",
         }
     }
 
     /// Whether this command requires an interactive terminal.
     pub fn is_interactive(self) -> bool {
-        matches!(self, Self::Choose | Self::Cleanup)
+        matches!(self, Self::Choose | Self::Cleanup | Self::DemoLoading)
     }
 }
