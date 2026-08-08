@@ -1,5 +1,4 @@
 #!/bin/bash
-enable_strict_mode
 
 # tmux-worktrees orchestrator
 # This script is sourced by tpm/tpack and will build/install the Rust binary on first use
@@ -18,10 +17,6 @@ GITHUB_REPO="gbrennon/tmux-worktrees"
 # Read key bindings from tmux options (with defaults)
 WORKTREE_KEY="$(tmux show-option -gv @worktree-key 2>/dev/null || echo "W")"
 CLEANUP_KEY="$(tmux show-option -gv @worktree-cleanup-key 2>/dev/null || echo "D")"
-
-enable_strict_mode() {
-    set -euo pipefail
-}
 
 ensure_plugin_dir() {
     mkdir -p "$PLUGIN_DIR"
