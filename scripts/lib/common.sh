@@ -9,11 +9,29 @@ set -euo pipefail
 # ========================================
 
 resolve_current_branch_name() {
+  local branch=""
+
   if [ "${CI_EVENT_NAME:-}" = "pull_request" ]; then
-    echo "${CI_HEAD_REF:-}"
+    branch="${CI_HEAD_REF:-}"
   else
-    echo "${CI_REF:-}" | sed 's|refs/heads/||'
+    branch="${CI_REF:-}"
+    branch="${branch#refs/heads/}"
   fi
+
+  if [ -z "$branch" ]; then
+    branch="${GITHUB_REF_NAME:-}"
+  fi
+
+  if [ -z "$branch" ]; then
+    branch="$(git branch --show-current 2>/dev/null || true)"
+  fi
+
+  if [ -z "$branch" ] || [ "$branch" = "HEAD" ]; then
+    branch="$(git rev-parse --abbrev-ref HEAD 2>/dev/null || true)"
+    [ "$branch" = "HEAD" ] && branch=""
+  fi
+
+  printf '%s' "$branch"
 }
 
 resolve_commit_range() {
