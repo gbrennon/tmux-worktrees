@@ -12,7 +12,10 @@ BINARY_NAME="tmux-worktrees"
 BINARY_PATH="$PLUGIN_DIR/$BINARY_NAME"
 REPO_DIR="$CURRENT_DIR"
 CARGO_MANIFEST="$REPO_DIR/Cargo.toml"
-GITHUB_REPO="gbrennon/tmux-worktrees"
+
+RELEASE_REPO="gbrennon/tmux-worktrees"
+RELEASE_API="https://codeberg.org/api/v1/repos/$RELEASE_REPO/releases/latest"
+RELEASE_DOWNLOAD_BASE="https://codeberg.org/$RELEASE_REPO/releases/download"
 
 # Read key bindings from tmux options (with defaults)
 WORKTREE_KEY="$(tmux show-option -gv @worktree-key 2>/dev/null || echo "W")"
@@ -22,21 +25,15 @@ ensure_plugin_dir() {
     mkdir -p "$PLUGIN_DIR"
 }
 
-get_latest_release_version() {
-    curl -s "https://api.github.com/repos/$GITHUB_REPO/releases/latest" \
-        | grep '"tag_name":' \
-        | sed -E 's/.*"([^"]+)".*/\1/'
-}
-
-download_prebuilt_binary() {
-    local version="$1"
-    local arch, os
+platform_triple() {
+    local arch
+    local os
     arch="$(uname -m)"
     os="$(uname -s | tr '[:upper:]' '[:lower:]')"
 
     case "$arch" in
         x86_64) arch="x86_64" ;;
-        aarch64|arm64) arch="aarch64" ;;
+        aarch64 | arm64) arch="aarch64" ;;
         *) return 1 ;;
     esac
 
@@ -46,24 +43,51 @@ download_prebuilt_binary() {
         *) return 1 ;;
     esac
 
-    local asset_name="${BINARY_NAME}-${arch}-${os}.tar.gz"
-    local download_url="https://github.com/${GITHUB_REPO}/releases/download/${version}/${asset_name}"
+    echo "${arch}-${os}"
+}
+
+release_asset_name() {
+    local triple
+    triple="$(platform_triple)" || return 1
+    echo "${BINARY_NAME}-${triple}.tar.gz"
+}
+
+get_latest_release_version() {
+    curl -fsSL "$RELEASE_API" \
+        | grep -o '"tag_name":"[^"]*"' \
+        | head -n 1 \
+        | sed -E 's/"tag_name":"([^"]*)"/\1/'
+}
+
+download_prebuilt_binary() {
+    local version="$1"
+    local asset_name
+    asset_name="$(release_asset_name)" || return 1
+    local download_url="${RELEASE_DOWNLOAD_BASE}/${version}/${asset_name}"
 
     echo "Downloading pre-built binary (${version})..." >&2
 
     local temp_dir
     temp_dir="$(mktemp -d)"
-    trap 'rm -rf "$temp_dir"' RETURN
 
-    if curl -fsSL "$download_url" -o "$temp_dir/$asset_name"; then
-        tar -xzf "$temp_dir/$asset_name" -C "$temp_dir"
-        if [[ -x "$temp_dir/$BINARY_NAME" ]]; then
-            cp "$temp_dir/$BINARY_NAME" "$BINARY_PATH"
-            chmod +x "$BINARY_PATH"
-            return 0
-        fi
+    if ! curl -fsSL "$download_url" -o "$temp_dir/$asset_name"; then
+        rm -rf "$temp_dir"
+        return 1
     fi
 
+    if ! tar -xzf "$temp_dir/$asset_name" -C "$temp_dir"; then
+        rm -rf "$temp_dir"
+        return 1
+    fi
+
+    if [[ -x "$temp_dir/$BINARY_NAME" ]]; then
+        cp "$temp_dir/$BINARY_NAME" "$BINARY_PATH"
+        chmod +x "$BINARY_PATH"
+        rm -rf "$temp_dir"
+        return 0
+    fi
+
+    rm -rf "$temp_dir"
     return 1
 }
 
