@@ -7,7 +7,7 @@ runs:
   steps:
     - name: Install system packages
       shell: bash
-      run: apt-get update && apt-get install -y bash git fzf tmux curl
+      run: sudo apt-get update && sudo apt-get install -y bash git fzf tmux curl
 
     - name: Install just
       shell: bash
@@ -31,7 +31,7 @@ runs:
           -o /tmp/just.tar.gz \
           "https://github.com/casey/just/releases/download/1.38.0/just-1.38.0-${target}.tar.gz"
         tar -xzf /tmp/just.tar.gz -C /tmp just
-        install -m 0755 /tmp/just /usr/local/bin/just
+        sudo install -m 0755 /tmp/just /usr/local/bin/just
         rm -f /tmp/just.tar.gz /tmp/just
         just --version
 

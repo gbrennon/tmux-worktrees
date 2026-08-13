@@ -10,11 +10,11 @@ on:
 
 jobs:
   test:
-    runs-on: codeberg-small
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
 
-      - uses: ./.forgejo/actions/install-dependencies
+      - uses: ./.github/actions/install-dependencies
 
       - name: Cache cargo registry and git
         uses: actions/cache@v4
@@ -32,14 +32,14 @@ jobs:
           key: ${{ runner.os }}-cargo-target-${{ hashFiles('**/Cargo.lock') }}
           restore-keys: ${{ runner.os }}-cargo-target-
 
-      - uses: ./.forgejo/actions/run-tests
+      - uses: ./.github/actions/run-tests
 
   lint:
-    runs-on: codeberg-small
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
 
-      - uses: ./.forgejo/actions/install-dependencies
+      - uses: ./.github/actions/install-dependencies
 
       - name: Cache cargo registry and git
         uses: actions/cache@v4
@@ -64,7 +64,7 @@ jobs:
         run: just lint
 
   validate:
-    runs-on: codeberg-tiny
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
 
@@ -85,7 +85,7 @@ jobs:
             [ -f "$f" ] && shellcheck --external-sources -S info "$f"
           done
 
-      - name: Lint Forgejo Actions workflows
+      - name: Lint GitHub Actions workflows
         run: |
           PATH="$HOME/.local/bin:$PATH"
-          actionlint -config-file .actionlint.yaml .forgejo/workflows/*.yml
+          actionlint -config-file .actionlint.yaml .github/workflows/*.yml
