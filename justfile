@@ -54,4 +54,4 @@ install-hooks:
 
 # validate workflow files statically (requires actionlint)
 lint-workflows:
-    actionlint -config-file .actionlint.yaml .forgejo/workflows/*.yml
+    actionlint -config-file .actionlint.yaml .github/workflows/*.yml

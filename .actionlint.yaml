@@ -1,12 +1,4 @@
-self-hosted-runner:
-  labels:
-    - codeberg-tiny
-    - codeberg-small
-    - codeberg-medium
-
 paths:
-  ".forgejo/workflows/*.yml":
+  ".github/workflows/*.yml":
     ignore:
       - 'specifying action "https://'
-      - 'label "codeberg-tiny"'
-      - 'undefined variable "forgejo"'
