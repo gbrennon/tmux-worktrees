@@ -12,8 +12,8 @@ name = "infrastructure"
 path = "tests/infrastructure/mod.rs"
 
 [[test]]
-name = "e2e_worktree_lifecycle"
-path = "tests/e2e/worktree_lifecycle_test.rs"
+name = "e2e"
+path = "tests/e2e/mod.rs"
 
 [[test]]
 name = "presentation"
