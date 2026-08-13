@@ -8,6 +8,10 @@ name = "tmux_worktrees"
 path = "src/lib.rs"
 
 [[test]]
+name = "core"
+path = "tests/core/mod.rs"
+
+[[test]]
 name = "infrastructure"
 path = "tests/infrastructure/mod.rs"
 
