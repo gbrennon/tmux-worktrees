@@ -15,14 +15,9 @@ path = "tests/infrastructure/mod.rs"
 name = "e2e_worktree_lifecycle"
 path = "tests/e2e/worktree_lifecycle_test.rs"
 
-
 [[test]]
-name = "cli_test"
-path = "tests/presentation/cli_test.rs"
-
-[[test]]
-name = "command_test"
-path = "tests/presentation/command_test.rs"
+name = "presentation"
+path = "tests/presentation/mod.rs"
 [dependencies]
 ratatui = "0.30"
 crossterm = "0.29"
