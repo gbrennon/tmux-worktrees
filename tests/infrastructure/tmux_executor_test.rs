@@ -5,10 +5,8 @@ use std::sync::LazyLock;
 
 use tmux_worktrees::infrastructure::command_runner::{CommandRunner, SystemCommandRunner};
 use tmux_worktrees::infrastructure::tmux_executor::TmuxExecutor;
-#[path = "../common/mod.rs"]
-mod common;
 
-use common::fakes::command_runner::FakeRunner;
+use super::common::fakes::command_runner::FakeRunner;
 use std::sync::Mutex;
 use tmux_worktrees::utils::ShellQuoter;
 

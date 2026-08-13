@@ -6,13 +6,10 @@ use tempfile::TempDir;
 use tmux_worktrees::presentation::cli::Cli;
 use tmux_worktrees::presentation::command::Command as AppCommand;
 
-#[path = "../common/mod.rs"]
-mod common;
-
-use common::fakes::git::*;
-use common::fakes::loading::*;
-use common::fakes::selector::*;
-use common::fakes::tmux::*;
+use super::common::fakes::git::*;
+use super::common::fakes::loading::*;
+use super::common::fakes::selector::*;
+use super::common::fakes::tmux::*;
 use tmux_worktrees::core::ports::{GitPort, TmuxPort};
 use tmux_worktrees::presentation::loading_port::LoadingRunner;
 use tmux_worktrees::presentation::selector_port::SelectorRunner;

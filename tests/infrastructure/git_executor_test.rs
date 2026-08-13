@@ -2,8 +2,6 @@ use std::cell::RefCell;
 use std::path::Path;
 use std::rc::Rc;
 use tmux_worktrees::core::error::Result;
-#[path = "../common/mod.rs"]
-mod common;
 
 struct FakeGitExecutorForVersion;
 
@@ -261,7 +259,7 @@ mod tests {
     }
 }
 
-use common::fakes::command_runner::FakeRunner;
+use super::common::fakes::command_runner::FakeRunner;
 use tmux_worktrees::infrastructure::git_executor::GitExecutor;
 
 /// Helper: build a `GitExecutor` backed by the given `FakeRunner`.
