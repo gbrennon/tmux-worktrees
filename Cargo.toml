@@ -8,12 +8,8 @@ name = "tmux_worktrees"
 path = "src/lib.rs"
 
 [[test]]
-name = "git_executor_test"
-path = "tests/infrastructure/git_executor_test.rs"
-
-[[test]]
-name = "tmux_executor_test"
-path = "tests/infrastructure/tmux_executor_test.rs"
+name = "infrastructure"
+path = "tests/infrastructure/mod.rs"
 
 [[test]]
 name = "e2e_worktree_lifecycle"
