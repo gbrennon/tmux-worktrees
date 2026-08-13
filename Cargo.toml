@@ -17,7 +17,7 @@ path = "tests/infrastructure/tmux_executor_test.rs"
 
 [[test]]
 name = "e2e_worktree_lifecycle"
-path = "tests/e2e/worktree_lifecycle.rs"
+path = "tests/e2e/worktree_lifecycle_test.rs"
 
 
 [[test]]
