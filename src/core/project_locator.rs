@@ -6,7 +6,7 @@ impl ProjectLocator {
     pub fn from_env() -> Option<String> {
         if let Ok(root) = std::env::var("TMUX_WORKTREES_ROOT") {
             let root = root.trim().to_string();
-            if !root.is_empty() && Path::new(&root).join(".git").is_dir() {
+            if !root.is_empty() && Self::is_git_repo(Path::new(&root)) {
                 return Some(root);
             }
         }
@@ -16,7 +16,7 @@ impl ProjectLocator {
     pub fn by_walking(&self, start: &Path) -> Option<String> {
         let mut dir = start.to_path_buf();
         loop {
-            if dir.join(".git").is_dir() {
+            if Self::is_git_repo(&dir) {
                 return Some(dir.to_string_lossy().into_owned());
             }
             match dir.parent() {
@@ -67,6 +67,11 @@ impl ProjectLocator {
         }
         Ok(())
     }
+
+    fn is_git_repo(dir: &Path) -> bool {
+        let marker = dir.join(".git");
+        marker.is_dir() || marker.is_file()
+    }
 }
 
 #[cfg(test)]
@@ -113,6 +118,37 @@ mod tests {
         fs::create_dir(project.join(".git")).unwrap();
         let result = locator.by_walking(&sub);
         assert_eq!(result, Some(project.to_string_lossy().into_owned()));
+    }
+
+    #[test]
+    fn project_locator_by_walking_finds_git_file_worktree() {
+        let locator = ProjectLocator;
+        let dir = tempdir().unwrap();
+        let project = dir.path().join("worktree");
+        fs::create_dir(&project).unwrap();
+        fs::write(
+            project.join(".git"),
+            "gitdir: /some/where/.git/worktrees/worktree\n",
+        )
+        .unwrap();
+        let result = locator.by_walking(&project);
+        assert_eq!(result, Some(project.to_string_lossy().into_owned()));
+    }
+
+    #[test]
+    fn project_locator_from_env_returns_some_when_worktree() {
+        let dir = tempdir().unwrap();
+        let project = dir.path().join("worktree");
+        fs::create_dir(&project).unwrap();
+        fs::write(
+            project.join(".git"),
+            "gitdir: /some/where/.git/worktrees/worktree\n",
+        )
+        .unwrap();
+        unsafe { std::env::set_var("TMUX_WORKTREES_ROOT", project.to_str().unwrap()) };
+        let result = ProjectLocator::from_env();
+        assert_eq!(result, Some(project.to_string_lossy().into_owned()));
+        unsafe { std::env::remove_var("TMUX_WORKTREES_ROOT") };
     }
 
     #[test]

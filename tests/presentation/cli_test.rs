@@ -1,12 +1,9 @@
-#[path = "../common/mod.rs"]
-mod common;
-
 use std::path::Path;
 
-use common::fakes::git::*;
-use common::fakes::loading::*;
-use common::fakes::selector::*;
-use common::fakes::tmux::*;
+use super::common::fakes::git::*;
+use super::common::fakes::loading::*;
+use super::common::fakes::selector::*;
+use super::common::fakes::tmux::*;
 use tmux_worktrees::core::ports::{GitPort, TmuxPort};
 use tmux_worktrees::core::selector::SelectionResult;
 use tmux_worktrees::presentation::cli::Cli;
