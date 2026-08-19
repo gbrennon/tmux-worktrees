@@ -22,6 +22,7 @@ path = "tests/e2e/mod.rs"
 [[test]]
 name = "presentation"
 path = "tests/presentation/mod.rs"
+
 [dependencies]
 ratatui = "0.30"
 crossterm = "0.29"
