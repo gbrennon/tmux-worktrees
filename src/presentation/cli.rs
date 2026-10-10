@@ -143,13 +143,13 @@ impl Cli {
             SelectionResult::Custom(q) => q,
             SelectionResult::Cancelled => return Ok(()),
         };
-        let ws = repo_root_path.join(&worktree_dir).join(&branch);
-        if ws.is_dir()
-            && let Ok(resolved) = self.workspace_branch(&ws)
+        let worktree_path = repo_root_path.join(&worktree_dir).join(&branch);
+        if worktree_path.is_dir()
+            && let Ok(resolved) = self.workspace_branch(&worktree_path)
             && !resolved.is_empty()
             && resolved != "?"
         {
-            return self.run_create(&resolved);
+            return self.open_workspace_window(&resolved, &worktree_path);
         }
         self.run_create(&branch)
     }
@@ -179,7 +179,11 @@ impl Cli {
                 return Ok(());
             }
         }
-        let target_abs = WorkspaceResolver.resolve_absolute(&target);
+        self.open_workspace_window(branch, &target)
+    }
+
+    fn open_workspace_window(&self, branch: &str, target: &Path) -> Result<()> {
+        let target_abs = WorkspaceResolver.resolve_absolute(target);
         let command = self.tmux.resolve_shell_command();
         self.tmux
             .select_or_create_window(branch, &target_abs, &command)?;
