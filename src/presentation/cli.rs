@@ -127,31 +127,40 @@ impl Cli {
         let repo_root_path = Path::new(&repo_root);
         std::env::set_current_dir(repo_root_path)?;
         let worktree_dir = self.tmux.resolve_workspace_dir();
-        let existing = self.list_workspace_names(repo_root_path, &worktree_dir)?;
-        let header = if existing.is_empty() {
+        let workspaces = self.list_workspaces(repo_root_path, &worktree_dir)?;
+        let mut existing: Vec<_> = workspaces
+            .into_iter()
+            .filter_map(|path| {
+                let name = path.file_name()?.to_string_lossy().into_owned();
+                Some((name, path))
+            })
+            .collect();
+        existing.sort_by(|a, b| a.0.cmp(&b.0));
+        let existing_names: Vec<String> = existing.iter().map(|(name, _)| name.clone()).collect();
+        let header = if existing_names.is_empty() {
             "No workspaces yet — type a name and press Enter to create"
         } else {
             "Type to filter, Enter to select/create"
         };
-        let mut selector = Selector::new(existing.clone(), true);
+        let mut selector = Selector::new(existing_names, true);
         let filtered = selector.filter("");
         let picked = self
             .selector
             .run_selector(&mut selector, &filtered, "Workspace> ", header)?;
-        let branch = match picked {
-            SelectionResult::Selected(i) => existing[i].clone(),
-            SelectionResult::Custom(q) => q,
-            SelectionResult::Cancelled => return Ok(()),
-        };
-        let ws = repo_root_path.join(&worktree_dir).join(&branch);
-        if ws.is_dir()
-            && let Ok(resolved) = self.workspace_branch(&ws)
-            && !resolved.is_empty()
-            && resolved != "?"
-        {
-            return self.run_create(&resolved);
+        match picked {
+            SelectionResult::Selected(i) => {
+                let (display_name, worktree_path) = &existing[i];
+                let branch = self
+                    .workspace_branch(worktree_path)
+                    .unwrap_or_else(|_| display_name.clone());
+                if !branch.is_empty() && branch != "?" {
+                    return self.open_workspace_window(&branch, worktree_path);
+                }
+                self.run_create(display_name)
+            }
+            SelectionResult::Custom(branch) => self.run_create(&branch),
+            SelectionResult::Cancelled => Ok(()),
         }
-        self.run_create(&branch)
     }
 
     pub fn run_create(&self, branch: &str) -> Result<()> {
@@ -179,7 +188,11 @@ impl Cli {
                 return Ok(());
             }
         }
-        let target_abs = WorkspaceResolver.resolve_absolute(&target);
+        self.open_workspace_window(branch, &target)
+    }
+
+    fn open_workspace_window(&self, branch: &str, target: &Path) -> Result<()> {
+        let target_abs = WorkspaceResolver.resolve_absolute(target);
         let command = self.tmux.resolve_shell_command();
         self.tmux
             .select_or_create_window(branch, &target_abs, &command)?;

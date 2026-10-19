@@ -406,6 +406,50 @@ fn run_choose_creates_workspace_for_custom_branch() {
 }
 
 #[test]
+fn run_choose_opens_existing_worktree_after_branch_rename() {
+    let temporary_repository = tempfile::tempdir().unwrap();
+    let repository_path = temporary_repository.path();
+    let worktree_directory = repository_path.join(".worktrees");
+    let existing_worktree = worktree_directory.join("old-name");
+    std::fs::create_dir(repository_path.join(".git")).unwrap();
+    std::fs::create_dir(&worktree_directory).unwrap();
+    std::fs::create_dir(&existing_worktree).unwrap();
+
+    let previous_directory = std::env::current_dir().unwrap();
+    let previous_root = std::env::var_os("TMUX_WORKTREES_ROOT");
+    unsafe {
+        std::env::set_var("TMUX_WORKTREES_ROOT", repository_path);
+    }
+
+    let tmux = FakeTmxTest::new(&repository_path.to_string_lossy());
+    let selected_window = tmux.selected_window.clone();
+    let selector = FakeSelector::new(vec![SelectionResult::Selected(0)]);
+    let git = FakeGitForChoose::existing_worktree(
+        &repository_path.to_string_lossy(),
+        &existing_worktree.to_string_lossy(),
+        "renamed/name",
+    );
+    let cli = cli_with(tmux, git, selector);
+
+    let result = cli.run_choose();
+
+    match previous_root {
+        Some(root) => unsafe { std::env::set_var("TMUX_WORKTREES_ROOT", root) },
+        None => unsafe { std::env::remove_var("TMUX_WORKTREES_ROOT") },
+    }
+    std::env::set_current_dir(previous_directory).unwrap();
+    assert!(result.is_ok(), "expected Ok, got {result:?}");
+    assert_eq!(
+        selected_window.borrow().as_ref(),
+        Some(&(
+            "renamed/name".to_string(),
+            existing_worktree.to_string_lossy().into_owned(),
+            "/bin/bash".to_string(),
+        ))
+    );
+}
+
+#[test]
 fn run_cleanup_removes_workspace_and_deletes_branch() {
     let tmux = FakeTmxTest::new(REPO);
     let kill_called = tmux.kill_called.clone();

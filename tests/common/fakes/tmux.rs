@@ -337,6 +337,7 @@ pub struct FakeTmxTest {
     pub show_error_called: Rc<Cell<bool>>,
     pub show_error_msg: Rc<RefCell<String>>,
     pub display_msgs: Rc<RefCell<Vec<String>>>,
+    pub selected_window: Rc<RefCell<Option<(String, String, String)>>>,
     pub pane_path: Option<String>,
     pub env_value: Option<String>,
     pub worktree_dir: String,
@@ -350,6 +351,7 @@ impl FakeTmxTest {
             show_error_called: Rc::new(Cell::new(false)),
             show_error_msg: Rc::new(RefCell::new(String::new())),
             display_msgs: Rc::new(RefCell::new(Vec::new())),
+            selected_window: Rc::new(RefCell::new(None)),
             pane_path: None,
             env_value: Some(repo.to_string()),
             worktree_dir: ".worktrees".into(),
@@ -370,7 +372,9 @@ impl TmuxPort for FakeTmxTest {
     fn resolve_shell_command(&self) -> String {
         self.shell_cmd.clone()
     }
-    fn select_or_create_window(&self, _n: &str, _p: &str, _c: &str) -> Result<()> {
+    fn select_or_create_window(&self, name: &str, path: &str, command: &str) -> Result<()> {
+        *self.selected_window.borrow_mut() =
+            Some((name.to_string(), path.to_string(), command.to_string()));
         Ok(())
     }
     fn show_environment(&self, _v: &str) -> Result<Option<String>> {
