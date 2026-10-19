@@ -301,32 +301,46 @@ impl GitPort for FakeGitForCleanup {
 
 pub struct FakeGitForChoose {
     repo_path: String,
+    porcelain: String,
+    branch_name: String,
+    reject_worktree_add: bool,
 }
 impl FakeGitForChoose {
-    /// # Panics
-    ///
-    /// Never, as long as  is a valid &str.
     pub fn new(repo_path: &str) -> Self {
         Self {
             repo_path: repo_path.to_string(),
+            porcelain: format!(
+                "worktree {}\nworktree {}/.worktrees/feat-a\n",
+                repo_path, repo_path
+            ),
+            branch_name: String::new(),
+            reject_worktree_add: false,
+        }
+    }
+
+    pub fn existing_worktree(repo_path: &str, worktree_path: &str, branch_name: &str) -> Self {
+        Self {
+            repo_path: repo_path.to_string(),
+            porcelain: format!("worktree {}\nworktree {}\n", repo_path, worktree_path),
+            branch_name: branch_name.to_string(),
+            reject_worktree_add: true,
         }
     }
 }
 impl GitPort for FakeGitForChoose {
     fn run_in(&self, _d: &Path, args: &[&str]) -> Result<(i32, String, String)> {
         match args {
-            ["worktree", "list", "--porcelain"] => Ok((
-                0,
-                format!(
-                    "worktree {}\nworktree {}/.worktrees/feat-a\n",
-                    self.repo_path, self.repo_path
-                ),
-                String::new(),
-            )),
+            ["worktree", "list", "--porcelain"] => Ok((0, self.porcelain.clone(), String::new())),
+            ["rev-parse", "--abbrev-ref", "HEAD"] => {
+                Ok((0, self.branch_name.clone(), String::new()))
+            }
             ["config", "--global", "init.defaultBranch"] => Ok((0, "main".into(), String::new())),
             ["config", "init.defaultBranch"] => Ok((0, "main".into(), String::new())),
             ["branch", "--show-current"] => Ok((0, "main".into(), String::new())),
             ["show-ref", "--verify", "--quiet", _] => Ok((1, String::new(), String::new())),
+            ["worktree", "add", _, "-b", _, _] if self.reject_worktree_add => {
+                panic!("unexpected git worktree add")
+            }
             ["worktree", "add", _, "-b", _, _] => Ok((0, String::new(), String::new())),
             _ => unimplemented!("unexpected git run_in: {:?}", args),
         }
