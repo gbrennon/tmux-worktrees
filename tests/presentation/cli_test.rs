@@ -430,11 +430,8 @@ fn run_choose_creates_workspace_for_custom_branch() {
 fn run_choose_opens_existing_worktree_after_branch_rename() {
     let temporary_repository = tempfile::tempdir().unwrap();
     let repository_path = temporary_repository.path();
-    let worktree_directory = repository_path.join(".worktrees");
-    let existing_worktree = worktree_directory.join("old-name");
+    let existing_worktree = temporary_repository.path().join("external-worktree");
     std::fs::create_dir(repository_path.join(".git")).unwrap();
-    std::fs::create_dir(&worktree_directory).unwrap();
-    std::fs::create_dir(&existing_worktree).unwrap();
 
     let previous_directory = std::env::current_dir().unwrap();
     let previous_root = std::env::var_os("TMUX_WORKTREES_ROOT");
@@ -452,6 +449,10 @@ fn run_choose_opens_existing_worktree_after_branch_rename() {
     );
     let cli = cli_with(tmux, git, selector);
 
+    let names = cli
+        .list_workspace_names(repository_path, ".worktrees")
+        .unwrap();
+    assert_eq!(names, vec!["external-worktree"]);
     let result = cli.run_choose();
 
     match previous_root {
