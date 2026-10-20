@@ -204,7 +204,7 @@ fn list_workspaces_empty_when_no_worktrees() {
     let guard = init_ephemeral_repo();
     let cli = cli_with(
         StubTmx,
-        FakeGitWorktreeListOk,
+        FakeGitPorcelain::new(&format!("worktree {}\n", guard.repo_path().display())),
         StubSelector,
         FakeLoading::new(),
     );
@@ -220,7 +220,7 @@ fn list_workspace_names_empty_initially() {
     let guard = init_ephemeral_repo();
     let cli = cli_with(
         StubTmx,
-        FakeGitWorktreeListOk,
+        FakeGitPorcelain::new(&format!("worktree {}\n", guard.repo_path().display())),
         StubSelector,
         FakeLoading::new(),
     );
@@ -270,17 +270,17 @@ fn create_multiple_worktrees_and_list_all() {
     let branches = ["feat/alpha", "feat/beta", "feat/gamma"];
     let mut targets = Vec::new();
 
-    for &b in &branches {
+    branches.iter().for_each(|&b| {
         let t = guard.work_dir().join(b);
         cli.create_workspace(repo_root, &t, b, "main").unwrap();
         targets.push((t, b));
-    }
+    });
 
     assert_eq!(targets.len(), 3);
 
-    for (t, b) in &targets {
+    targets.iter().for_each(|(t, b)| {
         cli.remove_workspace(repo_root, t, b).unwrap();
-    }
+    });
 
     assert!(kill_called.get());
 }
