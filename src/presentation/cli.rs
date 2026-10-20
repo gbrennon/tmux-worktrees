@@ -346,7 +346,7 @@ impl Cli {
     pub fn list_workspaces(
         &self,
         repo_root: &Path,
-        work_dir: &str,
+        _work_dir: &str,
     ) -> Result<Vec<std::path::PathBuf>> {
         let (status, out, _) = self
             .git
@@ -354,17 +354,11 @@ impl Cli {
         if status != 0 {
             return Ok(Vec::new());
         }
-        let prefix = std::fs::canonicalize(repo_root.join(work_dir))
-            .unwrap_or_else(|_| repo_root.join(work_dir));
         let mut res = Vec::new();
         for line in out.lines() {
             if let Some(p) = line.strip_prefix("worktree ") {
                 let p = std::path::PathBuf::from(p.trim());
-                let matches = p.starts_with(&prefix)
-                    || std::fs::canonicalize(&p)
-                        .map(|c| c.starts_with(&prefix))
-                        .unwrap_or(false);
-                if matches {
+                if p != repo_root {
                     res.push(p);
                 }
             }
