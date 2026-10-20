@@ -240,6 +240,27 @@ fn list_workspaces_returns_worktree_paths() {
 }
 
 #[test]
+fn list_workspaces_includes_worktrees_outside_configured_directory() {
+    let cli = cli_default(
+        StubTmx,
+        FakeGitPorcelain::new(
+            "worktree /tmp/repo\nworktree /tmp/repo/worktrees/feat-a\nworktree /tmp/external-worktree\n",
+        ),
+    );
+    let paths = cli
+        .list_workspaces(Path::new("/tmp/repo"), "worktrees")
+        .unwrap();
+
+    assert_eq!(
+        paths,
+        vec![
+            Path::new("/tmp/repo/worktrees/feat-a"),
+            Path::new("/tmp/external-worktree"),
+        ]
+    );
+}
+
+#[test]
 fn list_workspace_names_extracts_sorted_names() {
     let cli = cli_default(StubTmx, FakeGitWorktreeListOk);
     let result = cli.list_workspace_names(Path::new("/tmp/repo"), "worktrees");
