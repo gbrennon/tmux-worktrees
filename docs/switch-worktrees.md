@@ -1,7 +1,8 @@
 # Switch between worktrees
 
-Press `prefix` + `W` again. The fzf picker reads Git's registered worktrees,
-not just the plugin's configured directory. It lists worktrees outside
+Press `prefix` + `W` again. The interactive picker reads Git's registered
+worktrees, not just the plugin's configured directory. It lists worktrees
+outside
 `@worktree-dir` too, using each worktree directory's name: `feature-foo`,
 `fix-bar`, `chore-baz`, or whatever directory name Git reports.
 

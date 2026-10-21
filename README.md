@@ -27,13 +27,9 @@ Add to `~/.tmux.conf` and reload (`prefix + I`):
 set -g @plugin 'gbrennon/tmux-worktrees'
 ```
 
-**Requires** [`fzf`][fzf] on your `$PATH`.  Also needs tmux >= 2.4, git >= 2.5,
-bash >= 4.0.
-
-```bash
-# Fedora        |  # Debian/Ubuntu    |  # Arch          |  # macOS
-sudo dnf install fzf | sudo apt install fzf | sudo pacman -S fzf | brew install fzf
-```
+Also needs tmux >= 2.4, git >= 2.5, bash >= 4.0, `curl`, and `tar`.
+TPM downloads a pre-built binary when one is available and otherwise builds it
+with the Rust toolchain.
 
 ---
 
@@ -65,9 +61,10 @@ sudo dnf install fzf | sudo apt install fzf | sudo pacman -S fzf | brew install 
 cd ~/my-project
 prefix + W
 ```
-Type `feat/foo` -> Enter.  A worktree is created (by default at `.worktrees/feat-foo`)
-and a new tmux window `wt-feat/foo` opens there.  Press `prefix + W` again to switch
-between worktrees, `prefix + D` to clean up.
+Type `feat/foo` -> Enter. A worktree is created (by default at
+`.workspaces/feat-foo`) and a new tmux window `ws-feat/foo` opens there.
+Press `prefix + W` again to switch between worktrees, including existing
+worktrees outside `.workspaces`; press `prefix + D` to clean up.
 
 > Examples use [conventional branch][conv-branch] prefixes (`feat/`, `fix/`,
 > `chore/`), but any branch name works — `my-branch` or `bugfix/login` are
@@ -110,5 +107,4 @@ MIT
 
 [git-worktree]: https://git-scm.com/docs/git-worktree
 [tpm]: https://github.com/tmux-plugins/tpm
-[fzf]: https://github.com/junegunn/fzf
 [conv-branch]: https://conventional-branch.github.io/

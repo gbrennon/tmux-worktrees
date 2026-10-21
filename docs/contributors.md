@@ -2,28 +2,27 @@
 
 ## Cloning the Repository
 
-To clone this repository with submodules, use:
+To clone this repository, use:
 ```bash
- git clone --recurse-submodules https://codeberg.org/gbrennon/tmux-worktree.git
+ git clone https://codeberg.org/gbrennon/tmux-worktrees.git
 ```
 
 ## Prerequisites
 
 Ensure you have the following tools installed:
+- Rust stable and Cargo: Used to build and test the application.
 - `just`: Used to run tests and build the project.
-- `fzf`: For interactive worktree selection.
 
 ### Installation Instructions
 
 **Ubuntu**:
 ```bash
 cargo install just
-sudo apt-get install fzf
 ```
 
 **macOS (Homebrew)**:
 ```bash
-brew install just fzf
+brew install just
 ```
 
 ## Running Tests
