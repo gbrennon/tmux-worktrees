@@ -6,9 +6,9 @@ A tmux plugin to create, switch between, and clean up
 ## Features
 
 - Create worktrees from a branch name and open them in dedicated tmux windows.
-- Resume and switch to every Git-registered worktree for the repository, except
-  the repository root itself, including worktrees outside the configured
-  directory.
+- Resume and switch to Git-registered worktrees, including worktrees outside the
+  configured directory. The picker resolves paths from the active repository
+  context and avoids listing that resolved root itself.
 - Keep managing external worktrees: switch to them, inspect their branches,
   and remove them through the same cleanup flow.
 - Customize the worktree directory, keybindings, and shell used by new windows.

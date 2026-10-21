@@ -1,7 +1,8 @@
 # How it works (under the hood)
 
 1. **Repo discovery** — the plugin walks up from the active pane's current
-   directory until it finds a `.git` folder.  That becomes the repo root.
+   directory until it finds a `.git` directory or worktree file. That becomes
+   the repo root.
 2. **Worktree discovery and storage** — Git's registered worktrees are read
    with `git worktree list --porcelain`, so the picker includes worktrees
    wherever they are located—not only inside the configured directory. New
