@@ -1,0 +1,14 @@
+name: Push release tag
+description: Create and push the validated release tag
+inputs:
+  version:
+    description: Release version
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Push release tag
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+      run: bash scripts/push_release_tag.sh
