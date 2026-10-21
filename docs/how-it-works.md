@@ -1,8 +1,9 @@
 # How it works (under the hood)
 
-1. **Repo discovery** — the plugin walks up from the active pane's current
-   directory until it finds a `.git` directory or worktree file. That becomes
-   the repo root.
+1. **Repo discovery** — the plugin first honors a valid
+   `TMUX_WORKTREES_ROOT`, then walks from the process working directory. If
+   that fails it checks `MAIN_PROJECT_PATH`, and finally walks from the active
+   tmux pane path. A `.git` directory or worktree file identifies the root.
 2. **Worktree discovery and storage** — Git's registered worktrees are read
    with `git worktree list --porcelain`, so the picker includes worktrees
    wherever they are located—not only inside the configured directory. New

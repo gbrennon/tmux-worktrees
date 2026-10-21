@@ -93,7 +93,7 @@ worktrees outside `.workspaces`; press `prefix + D` to clean up.
 Run the Rust test suite from the project root:
 
 ```bash
-cargo test
+cargo test -- --test-threads=1
 ```
 
 For the coverage-enforced project test recipe, install `just` and

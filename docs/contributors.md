@@ -30,7 +30,7 @@ brew install just
 
 To run the Rust test suite located in the `tests/` directory:
 ```bash
-cargo test
+cargo test -- --test-threads=1
 ```
 
 For coverage enforcement, install `cargo-llvm-cov` and run:
