@@ -7,3 +7,5 @@ runs:
   steps:
     - shell: bash
       run: just test
+    - shell: bash
+      run: just test-release-scripts
