@@ -3,6 +3,16 @@
 A tmux plugin to create, switch between, and clean up
 [git worktrees][git-worktree] without leaving your terminal.
 
+## Features
+
+- Create worktrees from a branch name and open them in dedicated tmux windows.
+- Resume and switch to every worktree registered by Git, including worktrees
+  located outside the configured worktree directory.
+- Keep managing external worktrees: switch to them, inspect their branches,
+  and remove them through the same cleanup flow.
+- Customize the worktree directory, keybindings, and shell used by new windows.
+- Clean up merged or stale worktrees without leaving tmux windows behind.
+
 **Demo**: `prefix + W` opens a picker — type a branch name, press Enter, and
 you're in a fresh tmux window pointing at that worktree.  `prefix + D` removes
 one just as fast.

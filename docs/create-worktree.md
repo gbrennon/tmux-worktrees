@@ -16,6 +16,10 @@ If the branch doesn't exist yet, tmux-worktrees will:
 If the worktree already exists, the same keybinding switches you to its tmux
 window — so `prefix + W` doubles as a fast project-wide window switcher.
 
+The existing worktree does not need to live under `@worktree-dir`. Git-registered
+worktrees created by another tool or at another path can be resumed and later
+cleaned up through the same picker.
+
 > **Note:** examples use [conventional branch][conv-commits] prefixes like
 > `feat/`, `fix/`, `chore/` for readability, but any branch name works —
 > `my-branch` or `bugfix/login` are equally valid.
