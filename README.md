@@ -6,8 +6,9 @@ A tmux plugin to create, switch between, and clean up
 ## Features
 
 - Create worktrees from a branch name and open them in dedicated tmux windows.
-- Resume and switch to every worktree registered by Git, including worktrees
-  located outside the configured worktree directory.
+- Resume and switch to every Git-registered worktree for the repository, except
+  the repository root itself, including worktrees outside the configured
+  directory.
 - Keep managing external worktrees: switch to them, inspect their branches,
   and remove them through the same cleanup flow.
 - Customize the worktree directory, keybindings, and shell used by new windows.
@@ -27,7 +28,7 @@ Add to `~/.tmux.conf` and reload (`prefix + I`):
 set -g @plugin 'gbrennon/tmux-worktrees'
 ```
 
-Also needs tmux >= 2.4, git >= 2.5, bash >= 4.0, `curl`, and `tar`.
+Also needs tmux >= 3.2, git >= 2.28, bash >= 4.0, `curl`, and `tar`.
 TPM downloads a pre-built binary when one is available and otherwise builds it
 with the Rust toolchain.
 
@@ -89,15 +90,15 @@ worktrees outside `.workspaces`; press `prefix + D` to clean up.
 
 ## Testing
 
-Run the full test suite from the project root:
+Run the Rust test suite from the project root:
 
 ```bash
-bash tests/run.sh
+cargo test
 ```
 
-Requires `git >= 2.28` (for `init.defaultBranch` support) and `bash >= 4.0`.
-Tests create and tear down temporary git repositories in `/tmp` — no project
-files are touched.
+For the coverage-enforced project test recipe, install `just` and
+`cargo-llvm-cov`, then run `just test`. Tests create and tear down temporary
+git repositories in `/tmp` — no project files are touched.
 
 ---
 

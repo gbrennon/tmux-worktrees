@@ -18,5 +18,6 @@
    The plugin checks for an existing window with that name before creating a
    new one, so you never end up with duplicates.
 5. **Cleanup safety** — the removal flow kills the tmux window first, then
-   runs `git worktree remove` followed by `git branch -D` (force-delete
-   even unmerged branches), so nothing is left dangling.
+   runs `git worktree remove --force` followed by `git branch -D`. This can
+   discard uncommitted work and force-delete an unmerged branch, so review the
+   selected worktree before confirming cleanup.
