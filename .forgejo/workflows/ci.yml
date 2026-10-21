@@ -18,6 +18,7 @@ jobs:
 
       - name: Cache cargo registry and git
         uses: actions/cache@v4
+        continue-on-error: true
         with:
           path: |
             ~/.cargo/registry
@@ -27,6 +28,7 @@ jobs:
 
       - name: Cache cargo build artifacts
         uses: actions/cache@v4
+        continue-on-error: true
         with:
           path: target
           key: ${{ runner.os }}-cargo-target-${{ hashFiles('**/Cargo.lock') }}
@@ -43,6 +45,7 @@ jobs:
 
       - name: Cache cargo registry and git
         uses: actions/cache@v4
+        continue-on-error: true
         with:
           path: |
             ~/.cargo/registry
@@ -52,6 +55,7 @@ jobs:
 
       - name: Cache cargo build artifacts
         uses: actions/cache@v4
+        continue-on-error: true
         with:
           path: target
           key: ${{ runner.os }}-cargo-target-${{ hashFiles('**/Cargo.lock') }}
