@@ -466,4 +466,3 @@ Reviewed-on: https://codeberg.org/gbrennon/tmux-worktree/pulls/8 ([89571a6](http
 - Write tests ([c9d46d2](https://codeberg.org/gbrennon/tmux-worktrees/commit/c9d46d28a99229a366dfa0d4d06200eb104779c8))
 - Migrating tests to bats ([fb2c11a](https://codeberg.org/gbrennon/tmux-worktrees/commit/fb2c11a874daa53f98301a42e4dbd249c2464639))
 - Bats tests ([d8577c9](https://codeberg.org/gbrennon/tmux-worktrees/commit/d8577c90d9aec047f94f6b4a5de9021c0543f21f))
-
