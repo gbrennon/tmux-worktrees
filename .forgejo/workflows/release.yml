@@ -1,0 +1,84 @@
+name: Release
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-${{ github.repository }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: >-
+      github.event.pull_request.merged == true &&
+      startsWith(github.event.pull_request.head.ref, 'release/v')
+    runs-on: codeberg-medium
+    timeout-minutes: 30
+    env:
+      HEAD_REF: ${{ github.event.pull_request.head.ref }}
+    steps:
+      - name: Check out merged release
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.merge_commit_sha }}
+
+      - name: Install git-cliff
+        uses: ./.forgejo/actions/install-git-cliff
+
+      - name: Install release tooling
+        uses: ./.forgejo/actions/install-release-tooling
+
+      - name: Validate release
+        id: release
+        uses: ./.forgejo/actions/validate-release
+        with:
+          head-ref: ${{ env.HEAD_REF }}
+
+      - name: Preflight release credentials and package
+        uses: ./.forgejo/actions/preflight-release
+        with:
+          version: ${{ steps.release.outputs.version }}
+          forgejo-api-url: ${{ github.api_url }}
+          forgejo-repository: ${{ github.repository }}
+          forgejo-token: ${{ github.token }}
+          github-repository: gbrennon/tmux-worktrees
+          github-token: ${{ secrets.GH_RELEASE_TOKEN }}
+          cargo-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+      - name: Publish crate to crates.io
+        uses: ./.forgejo/actions/publish-crate
+        with:
+          version: ${{ steps.release.outputs.version }}
+          token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+      - name: Push release tag
+        uses: ./.forgejo/actions/push-release-tag
+        with:
+          version: ${{ steps.release.outputs.version }}
+
+      - name: Generate release notes
+        uses: ./.forgejo/actions/generate-release-notes
+
+      - name: Create Codeberg release
+        uses: ./.forgejo/actions/create-release
+        with:
+          api-url: ${{ github.api_url }}
+          repository: ${{ github.repository }}
+          token: ${{ github.token }}
+          auth-scheme: token
+          version: ${{ steps.release.outputs.version }}
+
+      - name: Create GitHub release
+        uses: ./.forgejo/actions/create-release
+        with:
+          api-url: https://api.github.com
+          repository: gbrennon/tmux-worktrees
+          token: ${{ secrets.GH_RELEASE_TOKEN }}
+          auth-scheme: Bearer
+          merge-commit-sha: ${{ github.event.pull_request.merge_commit_sha }}
+          version: ${{ steps.release.outputs.version }}

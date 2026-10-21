@@ -76,6 +76,7 @@ between worktrees, `prefix + D` to clean up.
 | [Customise shell](docs/customise-shell.md) | Launch `bash`, `zsh`, `vim`, `emacs`, etc. |
 | [Customise worktree dir](docs/customise-worktree-dir.md) | Use a different worktree directory |
 | [How it works](docs/how-it-works.md) | Under-the-hood architecture |
+| [Releasing](docs/releasing.md) | Release branches and publishing |
 
 ---
 

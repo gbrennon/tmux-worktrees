@@ -1,0 +1,58 @@
+name: Prepare release
+
+on:
+  push:
+    branches:
+      - 'release/v*'
+    paths-ignore:
+      - 'CHANGELOG.md'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: prepare-release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Validate release and prepare changelog
+    runs-on: codeberg-small
+    timeout-minutes: 30
+    steps:
+      - name: Check out release branch
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.ref_name }}
+
+      - name: Install git-cliff
+        uses: ./.forgejo/actions/install-git-cliff
+
+      - name: Install release tooling
+        uses: ./.forgejo/actions/install-release-tooling
+
+      - name: Validate release
+        id: release
+        uses: ./.forgejo/actions/validate-release
+        with:
+          head-ref: ${{ github.ref_name }}
+
+      - name: Preflight release credentials and package
+        uses: ./.forgejo/actions/preflight-release
+        with:
+          version: ${{ steps.release.outputs.version }}
+          forgejo-api-url: ${{ github.api_url }}
+          forgejo-repository: ${{ github.repository }}
+          forgejo-token: ${{ github.token }}
+          github-repository: gbrennon/tmux-worktrees
+          github-token: ${{ secrets.GH_RELEASE_TOKEN }}
+          cargo-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+      - name: Update changelog
+        uses: ./.forgejo/actions/update-changelog
+        with:
+          version: ${{ steps.release.outputs.version }}
+          target-branch: ${{ github.ref_name }}
+          git-user-name: ${{ github.actor }}
+          git-user-email: ${{ github.actor }}@users.noreply.codeberg.org

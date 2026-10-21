@@ -1,0 +1,8 @@
+name: Generate release notes
+description: Generate and validate release notes from the latest tag
+runs:
+  using: composite
+  steps:
+    - name: Generate release notes
+      shell: bash
+      run: bash scripts/generate_release_notes.sh

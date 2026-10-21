@@ -1,0 +1,36 @@
+name: Create release
+description: Create a release through a Forgejo-compatible or GitHub API
+inputs:
+  api-url:
+    description: Release API base URL
+    required: true
+  repository:
+    description: Release repository
+    required: true
+  token:
+    description: Release API token
+    required: true
+  auth-scheme:
+    description: Authorization scheme
+    required: false
+    default: Bearer
+  merge-commit-sha:
+    description: Optional target commit for GitHub releases
+    required: false
+    default: ""
+  version:
+    description: Release version
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Create release
+      shell: bash
+      env:
+        RELEASE_API_URL: ${{ inputs.api-url }}
+        RELEASE_REPOSITORY: ${{ inputs.repository }}
+        RELEASE_TOKEN: ${{ inputs.token }}
+        RELEASE_AUTH_SCHEME: ${{ inputs.auth-scheme }}
+        RELEASE_TARGET_COMMITISH: ${{ inputs.merge-commit-sha }}
+        VERSION: ${{ inputs.version }}
+      run: bash scripts/create_release.sh
