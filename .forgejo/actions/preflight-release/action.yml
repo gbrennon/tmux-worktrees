@@ -1,0 +1,43 @@
+name: Preflight release
+description: Validate release credentials and Cargo publishing inputs
+inputs:
+  version:
+    description: Validated release version
+    required: true
+  forgejo-api-url:
+    description: Codeberg API base URL
+    required: true
+  forgejo-repository:
+    description: Codeberg repository
+    required: true
+  forgejo-token:
+    description: Codeberg API token
+    required: true
+  github-api-url:
+    description: GitHub API base URL
+    required: false
+    default: https://api.github.com
+  github-repository:
+    description: GitHub repository
+    required: true
+  github-token:
+    description: GitHub release token
+    required: true
+  cargo-token:
+    description: crates.io registry token
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Preflight release credentials and package
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+        FORGEJO_API_URL: ${{ inputs.forgejo-api-url }}
+        FORGEJO_REPOSITORY: ${{ inputs.forgejo-repository }}
+        FORGEJO_TOKEN: ${{ inputs.forgejo-token }}
+        GITHUB_API_URL: ${{ inputs.github-api-url }}
+        GITHUB_REPOSITORY: ${{ inputs.github-repository }}
+        GH_RELEASE_TOKEN: ${{ inputs.github-token }}
+        CARGO_REGISTRY_TOKEN: ${{ inputs.cargo-token }}
+      run: bash scripts/preflight_release.sh
