@@ -1,6 +1,6 @@
 # Customise the worktree directory
 
-By default, all worktrees are created inside `.worktrees/` at the repository
+By default, all new worktrees are created inside `.workspaces/` at the repository
 root.  You can change this with the `@worktree-dir` option:
 
 ```tmux
