@@ -31,7 +31,9 @@ Configure these secrets in the Codeberg repository:
   `gbrennon/tmux-worktrees`.
 
 The Forgejo-provided `${{ github.token }}` is used for Codeberg tags and
-releases. The workflow requests `contents: write` permission for that token.
+releases. Configure the repository's Forgejo Actions **Authorized Integrations**
+so the workflow has write access to repository contents; Forgejo does not
+support the GitHub-style workflow `permissions` field.
 
 ## Publish
 
