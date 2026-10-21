@@ -24,6 +24,9 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event.pull_request.merge_commit_sha }}
 
+      - name: Install Rust and release dependencies
+        uses: ./.forgejo/actions/install-dependencies
+
       - name: Install git-cliff
         uses: ./.forgejo/actions/install-git-cliff
 
