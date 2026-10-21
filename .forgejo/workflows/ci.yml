@@ -81,7 +81,7 @@ jobs:
 
       - name: Lint shell scripts
         run: |
-          for f in scripts/*.sh scripts/lib/*.sh; do
+          for f in scripts/*.sh scripts/lib/*.sh tests/scripts/*.sh; do
             [ -f "$f" ] && shellcheck --external-sources -S info "$f"
           done
 
