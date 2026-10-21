@@ -101,6 +101,7 @@ main.rs now only collects args, builds Ctx, and delegates. ([235e974](https://co
 - Clarify repository root discovery ([f4fc0c7](https://codeberg.org/gbrennon/tmux-worktrees/commit/f4fc0c7a1d5daebd2fe46b1c41a9cf1b4f890a6e))
 - Clarify discovery and cleanup behavior ([f61aa25](https://codeberg.org/gbrennon/tmux-worktrees/commit/f61aa25931a2ee6d234f742e434cdc991547d7da))
 - Clarify cleanup ancestry checks ([57b9fd6](https://codeberg.org/gbrennon/tmux-worktrees/commit/57b9fd6e18513904c323a6a729470c6389e91296))
+- Normalize v0.3.0 changelog ([344140e](https://codeberg.org/gbrennon/tmux-worktrees/commit/344140e9e7d9cb84d68bcf9aca3d09cf4b4458d9))
 
 
 ### Fixed
@@ -122,6 +123,7 @@ main.rs now only collects args, builds Ctx, and delegates. ([235e974](https://co
 - Retain discovered worktree paths ([18e5f78](https://codeberg.org/gbrennon/tmux-worktrees/commit/18e5f782a4c89139796a58e4507dedbb220f27b0))
 - Discover worktrees from git ([0e73b7c](https://codeberg.org/gbrennon/tmux-worktrees/commit/0e73b7cf67ab17fa29407feecd7321c093d737d0))
 - Remove unused e2e import ([dcf6f96](https://codeberg.org/gbrennon/tmux-worktrees/commit/dcf6f9657e0a64fed5b4a1a168ba9101afdff39b))
+- Reap isolated tmux server at process exit ([284580c](https://codeberg.org/gbrennon/tmux-worktrees/commit/284580ce50c6a43f54e930cb69c49aeaea08cb31))
 
 
 ### Maintenance
@@ -163,6 +165,7 @@ main.rs now only collects args, builds Ctx, and delegates. ([235e974](https://co
 - Recognize legacy tags ([4ad38c3](https://codeberg.org/gbrennon/tmux-worktrees/commit/4ad38c36ec89191584c53936cca5a1612f5db432))
 - Add crate package information ([4f93614](https://codeberg.org/gbrennon/tmux-worktrees/commit/4f93614e0218d6b27830b4b68dd166b1238def15))
 - Prepare v0.3.0 ([c1ad78c](https://codeberg.org/gbrennon/tmux-worktrees/commit/c1ad78cce186c7fe26fbcba7610cd135b929f191))
+- Update changelog ([1c20267](https://codeberg.org/gbrennon/tmux-worktrees/commit/1c20267f1a18094efc64d754fde39cd0e7b06db6))
 
 
 ### Other
@@ -277,6 +280,12 @@ Reviewed-on: ⁨https://codeberg.org/gbrennon/tmux-worktrees/pulls/31⁩ ([99464
 - Merge pull request 'chore(docs): document external worktree management' (#32) from chore/document-external-worktrees into main
 
 Reviewed-on: ⁨https://codeberg.org/gbrennon/tmux-worktrees/pulls/32⁩ ([76df6d9](https://codeberg.org/gbrennon/tmux-worktrees/commit/76df6d9843ccc0a0f31b545b00d28408a40b720d))
+- Verify release pull request checks ([eb80b33](https://codeberg.org/gbrennon/tmux-worktrees/commit/eb80b33e28d070f80a3f02b94126791238209d3e))
+- Retry release pull request checks ([fbc177d](https://codeberg.org/gbrennon/tmux-worktrees/commit/fbc177ddab5e9a94742ade984a2d268a9051ed48))
+- Merge pull request 'fix(tests): reap isolated tmux server at process exit' (#35) from fix/tmux-test-server-leak into main
+
+Reviewed-on: https://codeberg.org/gbrennon/tmux-worktrees/pulls/35 ([654efcb](https://codeberg.org/gbrennon/tmux-worktrees/commit/654efcb809a14662b1aa8d3ff28a947c123ea271))
+- Merge branch 'main' into release/v0.3.0 ([ecefee8](https://codeberg.org/gbrennon/tmux-worktrees/commit/ecefee80f6dfe6c96dfa50c2822ccd81f6d6d505))
 
 
 ### Tests
@@ -466,3 +475,4 @@ Reviewed-on: https://codeberg.org/gbrennon/tmux-worktree/pulls/8 ([89571a6](http
 - Write tests ([c9d46d2](https://codeberg.org/gbrennon/tmux-worktrees/commit/c9d46d28a99229a366dfa0d4d06200eb104779c8))
 - Migrating tests to bats ([fb2c11a](https://codeberg.org/gbrennon/tmux-worktrees/commit/fb2c11a874daa53f98301a42e4dbd249c2464639))
 - Bats tests ([d8577c9](https://codeberg.org/gbrennon/tmux-worktrees/commit/d8577c90d9aec047f94f6b4a5de9021c0543f21f))
+
