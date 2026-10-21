@@ -4,9 +4,6 @@ on:
   pull_request:
     types: [closed]
 
-permissions:
-  contents: write
-
 concurrency:
   group: release-${{ github.repository }}
   cancel-in-progress: false

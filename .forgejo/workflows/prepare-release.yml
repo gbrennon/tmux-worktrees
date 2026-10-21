@@ -7,9 +7,6 @@ on:
     paths-ignore:
       - 'CHANGELOG.md'
 
-permissions:
-  contents: write
-
 concurrency:
   group: prepare-release-${{ github.ref }}
   cancel-in-progress: false
