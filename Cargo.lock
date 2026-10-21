@@ -1463,6 +1463,7 @@ version = "0.3.0"
 dependencies = [
  "crossterm",
  "fuzzy-matcher",
+ "libc",
  "ratatui",
  "tempfile",
  "throbber-widgets-tui",

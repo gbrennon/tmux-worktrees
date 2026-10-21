@@ -29,10 +29,38 @@ impl CommandRunner for SocketRunner {
     }
 }
 
+/// Deterministic socket name for this test process's isolated tmux server.
+fn test_socket_name() -> String {
+    format!("tmux-worktrees-test-{}", std::process::id())
+}
+
+/// Absolute path tmux uses for a named socket: `$TMUX_TMPDIR`/`/tmp` then
+/// `tmux-<uid>/<label>`.
+fn test_socket_path(socket: &str) -> std::path::PathBuf {
+    let base = std::env::var_os("TMUX_TMPDIR").unwrap_or_else(|| "/tmp".into());
+    let uid = unsafe { libc::getuid() };
+    std::path::Path::new(&base)
+        .join(format!("tmux-{uid}"))
+        .join(socket)
+}
+
+/// Terminates the isolated test server and removes its socket file. Registered
+/// with [`libc::atexit`] so the server never outlives the test process.
+/// Recomputes the socket name because atexit handlers receive no arguments; the
+/// name depends only on the stable process id.
+extern "C" fn kill_test_server() {
+    let socket = test_socket_name();
+    let _ = Command::new("tmux")
+        .args(["-L", &socket, "kill-server"])
+        .output();
+    let _ = std::fs::remove_file(test_socket_path(&socket));
+}
+
 /// Lazily-started test server socket name, or [`None`] if tmux is not
-/// installed or could not be started.
+/// installed or could not be started. On success it registers
+/// [`kill_test_server`] so the spawned server is reaped at process exit.
 static TEST_SOCKET: LazyLock<Option<String>> = LazyLock::new(|| {
-    let socket = format!("tmux-worktrees-test-{}", std::process::id());
+    let socket = test_socket_name();
     let _ = Command::new("tmux")
         .args(["-L", &socket, "kill-server"])
         .output();
@@ -51,7 +79,10 @@ static TEST_SOCKET: LazyLock<Option<String>> = LazyLock::new(|| {
         .output();
 
     match result {
-        Ok(o) if o.status.success() => Some(socket),
+        Ok(o) if o.status.success() => {
+            unsafe { libc::atexit(kill_test_server) };
+            Some(socket)
+        }
         _ => None,
     }
 });
