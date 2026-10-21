@@ -5,7 +5,9 @@ runs:
   using: composite
 
   steps:
-    - shell: bash
+    - name: Run Rust tests
+      shell: bash
       run: just test
-    - shell: bash
+    - name: Run release script tests
+      shell: bash
       run: just test-release-scripts
