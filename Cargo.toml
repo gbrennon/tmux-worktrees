@@ -2,6 +2,9 @@
 name = "tmux-worktrees"
 version = "0.1.0"
 edition = "2024"
+description = "A tmux plugin for creating and switching between Git worktrees"
+license = "MIT"
+repository = "https://codeberg.org/gbrennon/tmux-worktrees"
 
 [lib]
 name = "tmux_worktrees"
