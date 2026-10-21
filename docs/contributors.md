@@ -2,35 +2,38 @@
 
 ## Cloning the Repository
 
-To clone this repository with submodules, use:
+To clone this repository, use:
 ```bash
- git clone --recurse-submodules https://codeberg.org/gbrennon/tmux-worktree.git
+ git clone https://codeberg.org/gbrennon/tmux-worktrees.git
 ```
 
 ## Prerequisites
 
 Ensure you have the following tools installed:
+- Rust stable and Cargo: Used to build and test the application.
 - `just`: Used to run tests and build the project.
-- `fzf`: For interactive worktree selection.
+- `cargo-llvm-cov`: Used by the coverage-enforced test recipe.
 
 ### Installation Instructions
 
 **Ubuntu**:
 ```bash
 cargo install just
-sudo apt-get install fzf
 ```
 
 **macOS (Homebrew)**:
 ```bash
-brew install just fzf
+brew install just
 ```
 
 ## Running Tests
 
-To run all tests, use the `just` command:
+To run the Rust test suite located in the `tests/` directory:
+```bash
+cargo test -- --test-threads=1
+```
+
+For coverage enforcement, install `cargo-llvm-cov` and run:
 ```bash
 just test
 ```
-
-This will execute the Rust test suite located in the `tests/` directory.
