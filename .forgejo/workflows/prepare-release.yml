@@ -3,7 +3,7 @@ name: Prepare release
 on:
   push:
     branches:
-      - 'release/v*'
+      - 'release/**'
     paths-ignore:
       - 'CHANGELOG.md'
 
