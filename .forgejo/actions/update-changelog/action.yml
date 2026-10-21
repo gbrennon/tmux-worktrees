@@ -1,0 +1,27 @@
+name: Update changelog
+description: Generate and commit the versioned changelog
+inputs:
+  version:
+    description: Release version
+    required: true
+  target-branch:
+    description: Release branch to update
+    required: true
+  git-user-name:
+    description: Commit author name
+    required: true
+  git-user-email:
+    description: Commit author email
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Generate and push changelog
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+        TARGET_BRANCH: ${{ inputs.target-branch }}
+        HEAD_REF: ${{ inputs.target-branch }}
+        GIT_USER_NAME: ${{ inputs.git-user-name }}
+        GIT_USER_EMAIL: ${{ inputs.git-user-email }}
+      run: bash scripts/update_changelog.sh
