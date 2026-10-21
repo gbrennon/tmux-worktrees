@@ -7,9 +7,6 @@ on:
     paths-ignore:
       - 'CHANGELOG.md'
 
-permissions:
-  contents: write
-
 concurrency:
   group: prepare-release-${{ github.ref }}
   cancel-in-progress: false
@@ -25,6 +22,9 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.ref_name }}
+
+      - name: Install Rust and release dependencies
+        uses: ./.forgejo/actions/install-dependencies
 
       - name: Install git-cliff
         uses: ./.forgejo/actions/install-git-cliff

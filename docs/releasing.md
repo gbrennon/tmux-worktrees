@@ -8,8 +8,8 @@ Releases use a `release/vMAJOR.MINOR.PATCH` branch.
 2. Create and push a release branch, for example:
 
    ```bash
-   git switch -c release/v0.1.1
-   git push origin release/v0.1.1
+   git switch -c release/v0.3.0
+   git push codeberg release/v0.3.0
    ```
 
 3. `prepare-release.yml` validates the branch and Cargo version, checks the
@@ -31,7 +31,9 @@ Configure these secrets in the Codeberg repository:
   `gbrennon/tmux-worktrees`.
 
 The Forgejo-provided `${{ github.token }}` is used for Codeberg tags and
-releases. The workflow requests `contents: write` permission for that token.
+releases. Configure Codeberg Actions authorization so this built-in token can
+write repository contents; Forgejo does not support the GitHub-style workflow
+`permissions` field.
 
 ## Publish
 

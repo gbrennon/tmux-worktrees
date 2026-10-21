@@ -12,7 +12,7 @@ install:
 
 # run all tests with coverage summary table
 test:
-    cargo llvm-cov --fail-under-lines 70 --summary-only
+    cargo llvm-cov --fail-under-lines 70 --summary-only -- --test-threads=1
 
 # test release Bash scripts with fake external commands
 test-release-scripts:
