@@ -14,6 +14,10 @@ install:
 test:
     cargo llvm-cov --fail-under-lines 70 --summary-only
 
+# test release Bash scripts with fake external commands
+test-release-scripts:
+    bash tests/scripts/release_scripts_test.sh
+
 # run filtered tests with coverage summary (e.g. `just test-filter merge_checker`)
 test-filter FILTER:
     cargo llvm-cov --summary-only -- {{FILTER}}

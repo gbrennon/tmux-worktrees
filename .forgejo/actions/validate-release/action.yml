@@ -1,0 +1,19 @@
+name: Validate release
+description: Validate release branch, manifest version, and unused tag
+inputs:
+  head-ref:
+    description: Release branch name
+    required: true
+outputs:
+  version:
+    description: Validated release version
+    value: ${{ steps.validate.outputs.version }}
+runs:
+  using: composite
+  steps:
+    - name: Validate release
+      id: validate
+      shell: bash
+      env:
+        HEAD_REF: ${{ inputs.head-ref }}
+      run: bash scripts/validate_release.sh
