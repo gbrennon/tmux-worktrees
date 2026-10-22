@@ -1,6 +1,6 @@
 [package]
 name = "tmux-worktrees"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2024"
 description = "A tmux plugin for creating, switching between, and cleaning up Git worktrees"
 readme = "README.md"
