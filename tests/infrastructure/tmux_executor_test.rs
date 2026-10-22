@@ -7,7 +7,7 @@ use tmux_worktrees::infrastructure::command_runner::{CommandRunner, SystemComman
 use tmux_worktrees::infrastructure::tmux_executor::TmuxExecutor;
 
 use super::common::fakes::command_runner::FakeRunner;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use tmux_worktrees::utils::ShellQuoter;
 
 /// Wraps [`SystemCommandRunner`] and prepends `-L <socket>` to every `tmux`
@@ -96,6 +96,21 @@ fn executor_for_test(socket: &str) -> TmuxExecutor {
         socket: socket.to_owned(),
         inner: SystemCommandRunner,
     }))
+}
+
+#[derive(Clone, Default)]
+struct RecordingRunner {
+    calls: Arc<Mutex<Vec<Vec<String>>>>,
+}
+
+impl CommandRunner for RecordingRunner {
+    fn run(&self, _program: &str, args: &[&str], _cwd: Option<&Path>) -> io::Result<Output> {
+        self.calls
+            .lock()
+            .unwrap()
+            .push(args.iter().map(|arg| (*arg).to_string()).collect());
+        Command::new("true").output()
+    }
 }
 
 #[cfg(test)]
@@ -642,10 +657,22 @@ fn show_error_tries_popup_then_falls_back_to_display_message() {
 }
 
 #[test]
-fn show_error_succeeds_with_popup() {
-    let f = FakeRunner::new();
-    f.ok("tmux", &display_popup_key("tmux-worktrees-err"), 0, "", "");
-    executor_with(f).show_error("ok msg").unwrap();
+fn show_error_keeps_popup_open_until_keypress() {
+    let runner = RecordingRunner::default();
+    let calls = runner.calls.clone();
+    TmuxExecutor::with_runner(Box::new(runner))
+        .show_error("ok msg")
+        .unwrap();
+
+    let calls = calls.lock().unwrap();
+    let popup = calls
+        .iter()
+        .find(|args| args.first().map(String::as_str) == Some("display-popup"))
+        .expect("show_error should open a popup");
+    let command = popup.last().expect("popup should include a command");
+    assert!(command.contains("Press any key to close..."));
+    assert!(command.contains("bash -c 'read -r -n 1'"));
+    assert!(!command.contains("read -t"));
 }
 
 /// Build the key that the `FakeRunner` will see for the display-popup call
@@ -658,7 +685,7 @@ fn display_popup_key(_txt_prefix: &str) -> String {
         .to_string();
     let quoted = ShellQuoter::quote(&tmp);
     let cmd = format!(
-        "cat {quoted}; echo; echo 'Press any key or wait 10s...'; read -t 10 -n1 2>/dev/null || true; rm -f {quoted}"
+        "cat {quoted}; echo; echo 'Press any key to close...'; bash -c 'read -r -n 1' 2>/dev/null || true; rm -f {quoted}"
     );
     format!("display-popup:-E:-h:20:{cmd}")
 }

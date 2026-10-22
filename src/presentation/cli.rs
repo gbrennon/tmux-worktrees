@@ -42,10 +42,7 @@ impl Cli {
         let (cmd, rest) = self.parse_args(args);
 
         let result = if cmd.is_interactive() && !std::io::stdin().is_terminal() {
-            match self.spawn_in_popup(args) {
-                Ok(()) => Ok(()),
-                Err(_) => self.dispatch(cmd, &rest),
-            }
+            self.spawn_in_popup(args)
         } else {
             self.dispatch(cmd, &rest)
         };
@@ -101,6 +98,7 @@ impl Cli {
                 return Ok(());
             }
         };
+        ProjectLocator::require_worktree(Path::new(&root))?;
         let exe = std::env::current_exe().unwrap_or_else(|_| {
             args.first()
                 .map(std::path::PathBuf::from)

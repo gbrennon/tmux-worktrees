@@ -114,7 +114,7 @@ impl TmuxExecutor {
         let _ = std::fs::write(&tmp, format!("{msg}\n"));
         let quoted = crate::utils::ShellQuoter::quote(tmp.to_string_lossy().as_ref());
         let cmd = format!(
-            "cat {quoted}; echo; echo 'Press any key or wait 10s...'; read -t 10 -n1 2>/dev/null || true; rm -f {quoted}"
+            "cat {quoted}; echo; echo 'Press any key to close...'; bash -c 'read -r -n 1' 2>/dev/null || true; rm -f {quoted}"
         );
         if self.run(&["display-popup", "-E", "-h", "20", &cmd]).is_ok() {
             return Ok(());

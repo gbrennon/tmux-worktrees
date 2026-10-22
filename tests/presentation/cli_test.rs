@@ -37,6 +37,16 @@ fn cli_default(tmux: impl TmuxPort + 'static, git: impl GitPort + 'static) -> Cl
     cli_with(tmux, git, StubSelector)
 }
 
+fn linked_worktree_root() -> tempfile::TempDir {
+    let root = tempfile::tempdir().unwrap();
+    std::fs::write(
+        root.path().join(".git"),
+        "gitdir: /some/where/.git/worktrees/test\n",
+    )
+    .unwrap();
+    root
+}
+
 #[test]
 fn parse_args_defaults_to_choose() {
     let cli = cli_default(StubTmx, StubGit);
@@ -114,8 +124,8 @@ fn run_interactive_from_non_tty_uses_popup_path() {
     let tmux = FakeTmxNonTty::new();
     let guard = tmux.clone();
     let cli = cli_default(tmux, StubGit);
-    let root = std::env::current_dir().unwrap();
-    unsafe { std::env::set_var("TMUX_WORKTREES_ROOT", root.to_str().unwrap()) };
+    let root = linked_worktree_root();
+    unsafe { std::env::set_var("TMUX_WORKTREES_ROOT", root.path()) };
     let result = cli.spawn_in_popup(&["tmux-worktrees".to_string(), "choose".to_string()]);
     assert!(result.is_ok());
     assert!(!guard.show_error_called.get());
@@ -124,12 +134,39 @@ fn run_interactive_from_non_tty_uses_popup_path() {
 
 #[test]
 fn spawn_in_popup_calls_display_popup_when_root_found() {
+    let root = linked_worktree_root();
+    unsafe { std::env::set_var("TMUX_WORKTREES_ROOT", root.path()) };
     let tmux = FakeTmxPopupOk::new();
     let guard = tmux.clone();
     let cli = cli_default(tmux, StubGit);
     let result = cli.spawn_in_popup(&["tmux-worktrees".to_string(), "choose".to_string()]);
+    unsafe {
+        std::env::remove_var("TMUX_WORKTREES_ROOT");
+    }
     assert!(result.is_ok());
     assert!(guard.display_called.get());
+}
+
+#[test]
+fn spawn_in_popup_rejects_a_main_repository() {
+    let temporary_repository = tempfile::tempdir().unwrap();
+    std::fs::create_dir(temporary_repository.path().join(".git")).unwrap();
+    unsafe {
+        std::env::set_var("TMUX_WORKTREES_ROOT", temporary_repository.path());
+    }
+
+    let tmux = FakeTmxPopupOk::new();
+    let guard = tmux.clone();
+    let cli = cli_default(tmux, StubGit);
+    let error = cli
+        .spawn_in_popup(&["tmux-worktrees".to_string(), "choose".to_string()])
+        .unwrap_err();
+
+    unsafe {
+        std::env::remove_var("TMUX_WORKTREES_ROOT");
+    }
+    assert!(error.to_string().contains("Git worktree"));
+    assert!(!guard.display_called.get());
 }
 
 #[test]
