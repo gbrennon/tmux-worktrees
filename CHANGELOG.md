@@ -1,6 +1,29 @@
 # Changelog
 
 All notable changes to this project are documented here.
+## [0.4.0] - 2026-10-22
+
+
+### Added
+- Download binaries from GitHub releases ([d6973bb](https://codeberg.org/gbrennon/tmux-worktrees/commit/d6973bb8f9563f2968d7447a8edbdb91509e2ad9))
+
+
+### Fixed
+- Parse GitHub release metadata ([7413fbb](https://codeberg.org/gbrennon/tmux-worktrees/commit/7413fbbd024c435d5ad0e098a2f6756d97967f75))
+- Ignore generated release assets ([a570866](https://codeberg.org/gbrennon/tmux-worktrees/commit/a57086685295fa582ad7d63b55f3a46381da4f10))
+
+
+### Maintenance
+- Prepare v0.4.0 ([4af4aca](https://codeberg.org/gbrennon/tmux-worktrees/commit/4af4aca44d2631ed13adf5f26954bb204841ddf1))
+- Update changelog ([7131fbe](https://codeberg.org/gbrennon/tmux-worktrees/commit/7131fbe2b940815fb069bdccf223e89dd8e6570b))
+
+
+### Other
+- Merge pull request 'feat: download binaries from GitHub releases' (#36) from feat/github-release-assets into main
+
+Reviewed-on: ⁨https://codeberg.org/gbrennon/tmux-worktrees/pulls/36⁩ ([66cbca8](https://codeberg.org/gbrennon/tmux-worktrees/commit/66cbca87463123a613c21d03865eb8a17d9a6e72))
+- Verify release pull request checks ([94ae0c7](https://codeberg.org/gbrennon/tmux-worktrees/commit/94ae0c79c6db6c2f860559bed719c99b9d85f77b))
+
 ## [0.3.0] - 2026-10-21
 
 
@@ -166,6 +189,7 @@ main.rs now only collects args, builds Ctx, and delegates. ([235e974](https://co
 - Add crate package information ([4f93614](https://codeberg.org/gbrennon/tmux-worktrees/commit/4f93614e0218d6b27830b4b68dd166b1238def15))
 - Prepare v0.3.0 ([c1ad78c](https://codeberg.org/gbrennon/tmux-worktrees/commit/c1ad78cce186c7fe26fbcba7610cd135b929f191))
 - Update changelog ([1c20267](https://codeberg.org/gbrennon/tmux-worktrees/commit/1c20267f1a18094efc64d754fde39cd0e7b06db6))
+- Update changelog ([4218361](https://codeberg.org/gbrennon/tmux-worktrees/commit/421836143802d93f56f23f15c76e8cd067fbea8f))
 
 
 ### Other
@@ -286,6 +310,9 @@ Reviewed-on: ⁨https://codeberg.org/gbrennon/tmux-worktrees/pulls/32⁩ ([76df6
 
 Reviewed-on: https://codeberg.org/gbrennon/tmux-worktrees/pulls/35 ([654efcb](https://codeberg.org/gbrennon/tmux-worktrees/commit/654efcb809a14662b1aa8d3ff28a947c123ea271))
 - Merge branch 'main' into release/v0.3.0 ([ecefee8](https://codeberg.org/gbrennon/tmux-worktrees/commit/ecefee80f6dfe6c96dfa50c2822ccd81f6d6d505))
+- Merge pull request 'release: v0.3.0' (#33) from release/v0.3.0 into main
+
+Reviewed-on: ⁨https://codeberg.org/gbrennon/tmux-worktrees/pulls/33⁩ ([5a71c76](https://codeberg.org/gbrennon/tmux-worktrees/commit/5a71c76017676dfed3470c7d347aee5da5631481))
 
 
 ### Tests

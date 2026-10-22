@@ -17,6 +17,8 @@ test:
 # test release Bash scripts with fake external commands
 test-release-scripts:
     bash tests/scripts/release_scripts_test.sh
+    bash tests/scripts/install_script_test.sh
+    bash tests/scripts/release_asset_test.sh
 
 # run filtered tests with coverage summary (e.g. `just test-filter merge_checker`)
 test-filter FILTER:

@@ -1,0 +1,22 @@
+name: Upload GitHub release asset
+description: Upload a packaged binary asset to a GitHub release
+inputs:
+  upload-url:
+    description: Release asset upload URL
+    required: true
+  token:
+    description: GitHub release token
+    required: true
+  asset:
+    description: Path to the packaged release asset
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Upload release asset
+      shell: bash
+      env:
+        RELEASE_UPLOAD_URL: ${{ inputs.upload-url }}
+        RELEASE_TOKEN: ${{ inputs.token }}
+        RELEASE_ASSET: ${{ inputs.asset }}
+      run: bash scripts/upload_release_asset.sh

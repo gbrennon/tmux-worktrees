@@ -27,8 +27,8 @@ still validates packaging and dependencies before merge.
 Configure these secrets in the Codeberg repository:
 
 - `CARGO_REGISTRY_TOKEN`: crates.io publishing token.
-- `GH_RELEASE_TOKEN`: GitHub token with permission to create releases in
-  `gbrennon/tmux-worktrees`.
+- `GH_RELEASE_TOKEN`: GitHub token with Contents write permission to create
+  releases and upload assets in `gbrennon/tmux-worktrees`.
 
 The Forgejo-provided `${{ github.token }}` is used for Codeberg tags and
 releases. Configure Codeberg Actions authorization so this built-in token can
@@ -38,5 +38,10 @@ write repository contents; Forgejo does not support the GitHub-style workflow
 ## Publish
 
 After the release pull request is merged, `release.yml` publishes the root
-crate, pushes the release tag, generates release notes, and creates releases
-on both Codeberg and GitHub.
+crate, builds the Linux x86_64 GNU asset, pushes the release tag, generates
+release notes, creates releases on both Codeberg and GitHub, and uploads the
+binary asset to the GitHub release. Codeberg remains the release-notes host;
+GitHub is the binary-download host used by TPM and tpack.
+
+The installer asset is named `tmux-worktrees-x86_64-unknown-linux-gnu.tar.gz`.
+If it is unavailable, the installer builds from source with Cargo.

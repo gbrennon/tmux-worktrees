@@ -1,5 +1,12 @@
 name: Create release
 description: Create a release through a Forgejo-compatible or GitHub API
+outputs:
+  release-id:
+    description: Created release ID
+    value: ${{ steps.create.outputs.release-id }}
+  upload-url:
+    description: Release asset upload URL
+    value: ${{ steps.create.outputs.upload-url }}
 inputs:
   api-url:
     description: Release API base URL
@@ -25,6 +32,7 @@ runs:
   using: composite
   steps:
     - name: Create release
+      id: create
       shell: bash
       env:
         RELEASE_API_URL: ${{ inputs.api-url }}

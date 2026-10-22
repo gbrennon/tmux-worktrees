@@ -14,8 +14,8 @@ REPO_DIR="$CURRENT_DIR"
 CARGO_MANIFEST="$REPO_DIR/Cargo.toml"
 
 RELEASE_REPO="gbrennon/tmux-worktrees"
-RELEASE_API="https://codeberg.org/api/v1/repos/$RELEASE_REPO/releases/latest"
-RELEASE_DOWNLOAD_BASE="https://codeberg.org/$RELEASE_REPO/releases/download"
+RELEASE_API="https://api.github.com/repos/$RELEASE_REPO/releases/latest"
+RELEASE_DOWNLOAD_BASE="https://github.com/$RELEASE_REPO/releases/download"
 
 # Read key bindings from tmux options (with defaults)
 WORKTREE_KEY="$(tmux show-option -gv @worktree-key 2>/dev/null || echo "W")"
@@ -54,9 +54,8 @@ release_asset_name() {
 
 get_latest_release_version() {
     curl -fsSL "$RELEASE_API" \
-        | grep -o '"tag_name":"[^"]*"' \
-        | head -n 1 \
-        | sed -E 's/"tag_name":"([^"]*)"/\1/'
+        | sed -nE 's/.*"tag_name"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p' \
+        | head -n 1
 }
 
 download_prebuilt_binary() {
