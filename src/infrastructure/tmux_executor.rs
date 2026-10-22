@@ -47,9 +47,9 @@ impl TmuxExecutor {
         }
     }
 
-    pub fn resolve_workspace_dir(&self) -> String {
+    pub fn resolve_worktree_dir(&self) -> String {
         self.get_option("worktree-dir")
-            .unwrap_or_else(|| ".workspaces".to_string())
+            .unwrap_or_else(|| ".worktrees".to_string())
     }
 
     pub fn resolve_shell_command(&self) -> String {
@@ -80,20 +80,20 @@ impl TmuxExecutor {
     }
 
     pub fn select_or_create_window(&self, branch: &str, cwd: &str, command: &str) -> Result<()> {
-        let win = format!("ws-{branch}");
+        let win = format!("wt-{branch}");
         let exists = self.window_exists(&win)?;
         if exists {
             self.run_ok(&["select-window", "-t", &win]);
-            self.run_ok(&["display-message", &format!("Resumed workspace: {branch}")]);
+            self.run_ok(&["display-message", &format!("Resumed worktree: {branch}")]);
         } else {
             self.run_ok(&["new-window", "-n", &win, "-c", cwd, command]);
-            self.run_ok(&["display-message", &format!("Created workspace: {branch}")]);
+            self.run_ok(&["display-message", &format!("Created worktree: {branch}")]);
         }
         Ok(())
     }
 
     pub fn kill_window(&self, branch: &str) -> Result<()> {
-        let win = format!("ws-{branch}");
+        let win = format!("wt-{branch}");
         if self.window_exists(&win)? {
             self.run_ok(&["kill-window", "-t", &win]);
         }
@@ -171,8 +171,8 @@ impl TmuxPort for TmuxExecutor {
         self.display_popup(width, height, dir, cmd)
     }
 
-    fn resolve_workspace_dir(&self) -> String {
-        self.resolve_workspace_dir()
+    fn resolve_worktree_dir(&self) -> String {
+        self.resolve_worktree_dir()
     }
 
     fn resolve_shell_command(&self) -> String {

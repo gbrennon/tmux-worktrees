@@ -13,7 +13,7 @@ impl TmuxPort for StubTmx {
     fn display_popup(&self, _w: &str, _h: &str, _d: &str, _c: &str) -> Result<()> {
         unimplemented!()
     }
-    fn resolve_workspace_dir(&self) -> String {
+    fn resolve_worktree_dir(&self) -> String {
         unimplemented!()
     }
     fn resolve_shell_command(&self) -> String {
@@ -47,7 +47,7 @@ impl TmuxPort for FakeTmxShowError {
     fn display_popup(&self, _w: &str, _h: &str, _d: &str, _c: &str) -> Result<()> {
         unimplemented!()
     }
-    fn resolve_workspace_dir(&self) -> String {
+    fn resolve_worktree_dir(&self) -> String {
         unimplemented!()
     }
     fn resolve_shell_command(&self) -> String {
@@ -92,7 +92,7 @@ impl TmuxPort for FakeTmxNonTty {
         self.show_error_called.set(true);
         Ok(())
     }
-    fn resolve_workspace_dir(&self) -> String {
+    fn resolve_worktree_dir(&self) -> String {
         ".".to_string()
     }
     fn resolve_shell_command(&self) -> String {
@@ -123,7 +123,7 @@ impl TmuxPort for FakeTmxCreateSuccess {
     fn show_error(&self, _msg: &str) -> Result<()> {
         Ok(())
     }
-    fn resolve_workspace_dir(&self) -> String {
+    fn resolve_worktree_dir(&self) -> String {
         ".worktrees".into()
     }
     fn resolve_shell_command(&self) -> String {
@@ -156,13 +156,13 @@ pub struct FakeTmxWithWindow;
 impl TmuxPort for FakeTmxWithWindow {
     fn run(&self, args: &[&str]) -> Result<(i32, String, String)> {
         match args {
-            ["list-windows", "-F", "{window_name}"] => Ok((0, "ws-feat/x\n".into(), String::new())),
+            ["list-windows", "-F", "{window_name}"] => Ok((0, "wt-feat/x\n".into(), String::new())),
             ["kill-window", "-t", _] => Ok((0, String::new(), String::new())),
             _ => unimplemented!(),
         }
     }
     fn kill_window(&self, branch: &str) -> Result<()> {
-        let win = format!("ws-{branch}");
+        let win = format!("wt-{branch}");
         let (status, out, _) = self.run(&["list-windows", "-F", "{window_name}"])?;
         if status == 0 && out.lines().any(|l| l.trim() == win) {
             self.run(&["kill-window", "-t", &win])?;
@@ -175,7 +175,7 @@ impl TmuxPort for FakeTmxWithWindow {
     fn display_popup(&self, _w: &str, _h: &str, _d: &str, _c: &str) -> Result<()> {
         unimplemented!()
     }
-    fn resolve_workspace_dir(&self) -> String {
+    fn resolve_worktree_dir(&self) -> String {
         unimplemented!()
     }
     fn resolve_shell_command(&self) -> String {
@@ -207,7 +207,7 @@ impl TmuxPort for FakeTmxNoWindow {
         }
     }
     fn kill_window(&self, branch: &str) -> Result<()> {
-        let win = format!("ws-{branch}");
+        let win = format!("wt-{branch}");
         let (status, out, _) = self.run(&["list-windows", "-F", "{window_name}"])?;
         if status == 0 && out.lines().any(|l| l.trim() == win) {
             self.run(&["kill-window", "-t", &win])?;
@@ -220,7 +220,7 @@ impl TmuxPort for FakeTmxNoWindow {
     fn display_popup(&self, _w: &str, _h: &str, _d: &str, _c: &str) -> Result<()> {
         unimplemented!()
     }
-    fn resolve_workspace_dir(&self) -> String {
+    fn resolve_worktree_dir(&self) -> String {
         unimplemented!()
     }
     fn resolve_shell_command(&self) -> String {
@@ -265,7 +265,7 @@ impl TmuxPort for FakeTmxPopupOk {
     fn show_error(&self, _msg: &str) -> Result<()> {
         unimplemented!()
     }
-    fn resolve_workspace_dir(&self) -> String {
+    fn resolve_worktree_dir(&self) -> String {
         unimplemented!()
     }
     fn resolve_shell_command(&self) -> String {
@@ -301,7 +301,7 @@ impl TmuxPort for FakeTmxWindowFail {
         self.show_error_called.set(true);
         Ok(())
     }
-    fn resolve_workspace_dir(&self) -> String {
+    fn resolve_worktree_dir(&self) -> String {
         ".worktrees".into()
     }
     fn resolve_shell_command(&self) -> String {
@@ -366,7 +366,7 @@ impl TmuxPort for FakeTmxTest {
         *self.show_error_msg.borrow_mut() = msg.to_string();
         Ok(())
     }
-    fn resolve_workspace_dir(&self) -> String {
+    fn resolve_worktree_dir(&self) -> String {
         self.worktree_dir.clone()
     }
     fn resolve_shell_command(&self) -> String {

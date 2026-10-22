@@ -1,15 +1,15 @@
 use std::path::{Path, PathBuf};
 
-pub struct WorkspaceResolver;
+pub struct WorktreeResolver;
 
-impl WorkspaceResolver {
+impl WorktreeResolver {
     pub fn format_directory_name(&self, branch: &str) -> String {
         branch.replace('/', "-")
     }
 
-    pub fn resolve_path(&self, project_root: &Path, workspace_dir: &str, branch: &str) -> PathBuf {
+    pub fn resolve_path(&self, project_root: &Path, worktree_dir: &str, branch: &str) -> PathBuf {
         project_root
-            .join(workspace_dir)
+            .join(worktree_dir)
             .join(self.format_directory_name(branch))
     }
 
@@ -42,36 +42,36 @@ mod tests {
     use super::*;
 
     #[test]
-    fn workspace_resolver_formats_directory_name() {
-        let resolver = WorkspaceResolver;
+    fn worktree_resolver_formats_directory_name() {
+        let resolver = WorktreeResolver;
         assert_eq!(resolver.format_directory_name("feature/foo"), "feature-foo");
         assert_eq!(resolver.format_directory_name("bug/fix/bar"), "bug-fix-bar");
     }
 
     #[test]
-    fn workspace_resolver_resolves_path() {
-        let resolver = WorkspaceResolver;
+    fn worktree_resolver_resolves_path() {
+        let resolver = WorktreeResolver;
         let project_root = PathBuf::from("/home/user/project");
-        let workspace_dir = ".workspaces";
+        let worktree_dir = ".worktrees";
         let branch = "feature/foo";
-        let path = resolver.resolve_path(&project_root, workspace_dir, branch);
+        let path = resolver.resolve_path(&project_root, worktree_dir, branch);
         assert_eq!(
             path,
-            PathBuf::from("/home/user/project/.workspaces/feature-foo")
+            PathBuf::from("/home/user/project/.worktrees/feature-foo")
         );
     }
 
     #[test]
-    fn workspace_resolver_extracts_branch_from_display() {
-        let resolver = WorkspaceResolver;
+    fn worktree_resolver_extracts_branch_from_display() {
+        let resolver = WorktreeResolver;
         let display = "✓ merged  | feature/foo";
         let result = resolver.extract_branch_from_display(display);
         assert_eq!(result, Some("feature/foo".to_string()));
     }
 
     #[test]
-    fn workspace_resolver_resolves_absolute_path() {
-        let resolver = WorkspaceResolver;
+    fn worktree_resolver_resolves_absolute_path() {
+        let resolver = WorktreeResolver;
         let path = PathBuf::from("/home/user/project");
         let result = resolver.resolve_absolute(&path);
         assert_eq!(result, "/home/user/project");
@@ -80,7 +80,7 @@ mod tests {
     fn extract_branch_name_from_display_returns_none_when_no_separator() {
         let result = extract_branch_name_from_display("main");
         assert_eq!(result, None);
-        let resolver = WorkspaceResolver;
+        let resolver = WorktreeResolver;
         let result = resolver.extract_branch_from_display("main");
         assert_eq!(result, None);
     }
