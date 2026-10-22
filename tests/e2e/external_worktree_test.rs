@@ -89,7 +89,7 @@ fn resume_external_worktree_uses_git_path_and_name() {
     let selected_window = tmux.selected_window.clone();
     let selector = FakeSelector::new(vec![SelectionResult::Selected(0)]);
     let cli = cli_with(tmux, GitExecutor::default(), selector, FakeLoading::new());
-    let names = cli.list_workspace_names(&guard.repo, "worktrees").unwrap();
+    let names = cli.list_worktree_names(&guard.repo, "worktrees").unwrap();
     let result = cli.run_choose();
 
     match previous_root {

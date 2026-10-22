@@ -45,18 +45,18 @@ impl ProjectLocator {
         "main".to_string()
     }
 
-    pub fn ensure_workspace_directory(
+    pub fn ensure_worktree_directory(
         &self,
         project_root: &Path,
-        workspace_dir: &str,
+        worktree_dir: &str,
     ) -> crate::core::error::Result<()> {
-        let dir = project_root.join(workspace_dir);
+        let dir = project_root.join(worktree_dir);
         if !dir.is_dir() {
             std::fs::create_dir(&dir)?;
             let exclude = project_root.join(".git").join("info").join("exclude");
             if exclude.exists() {
                 let content = std::fs::read_to_string(&exclude).unwrap_or_default();
-                let line = format!("{workspace_dir}/");
+                let line = format!("{worktree_dir}/");
                 if !content.lines().any(|l| l.trim_end() == line)
                     && let Ok(mut f) = std::fs::OpenOptions::new().append(true).open(&exclude)
                 {
@@ -172,72 +172,72 @@ mod tests {
     }
 
     #[test]
-    fn project_locator_ensure_workspace_directory_creates_dir() {
+    fn project_locator_ensure_worktree_directory_creates_dir() {
         let locator = ProjectLocator;
         let dir = tempdir().unwrap();
         let project = dir.path().join("project");
         fs::create_dir_all(project.join(".git").join("info")).unwrap();
-        let workspace_dir = ".workspaces";
-        let result = locator.ensure_workspace_directory(&project, workspace_dir);
+        let worktree_dir = ".worktrees";
+        let result = locator.ensure_worktree_directory(&project, worktree_dir);
         assert!(result.is_ok());
-        assert!(project.join(workspace_dir).is_dir());
+        assert!(project.join(worktree_dir).is_dir());
     }
     #[test]
-    fn project_locator_ensure_workspace_directory_already_exists() {
+    fn project_locator_ensure_worktree_directory_already_exists() {
         let locator = ProjectLocator;
         let dir = tempdir().unwrap();
         let project = dir.path().join("project");
         fs::create_dir_all(project.join(".git").join("info")).unwrap();
-        let workspace_dir = ".workspaces";
-        fs::create_dir(project.join(workspace_dir)).unwrap();
-        let result = locator.ensure_workspace_directory(&project, workspace_dir);
+        let worktree_dir = ".worktrees";
+        fs::create_dir(project.join(worktree_dir)).unwrap();
+        let result = locator.ensure_worktree_directory(&project, worktree_dir);
         assert!(result.is_ok());
-        assert!(project.join(workspace_dir).is_dir());
+        assert!(project.join(worktree_dir).is_dir());
     }
 
     #[test]
-    fn project_locator_ensure_workspace_directory_updates_exclude_when_needed() {
+    fn project_locator_ensure_worktree_directory_updates_exclude_when_needed() {
         let locator = ProjectLocator;
         let dir = tempdir().unwrap();
         let project = dir.path().join("project");
         let info_dir = project.join(".git").join("info");
         fs::create_dir_all(&info_dir).unwrap();
         fs::write(info_dir.join("exclude"), "# existing exclude\n").unwrap();
-        let workspace_dir = ".workspaces";
-        let result = locator.ensure_workspace_directory(&project, workspace_dir);
+        let worktree_dir = ".worktrees";
+        let result = locator.ensure_worktree_directory(&project, worktree_dir);
         assert!(result.is_ok());
-        assert!(project.join(workspace_dir).is_dir());
+        assert!(project.join(worktree_dir).is_dir());
         let exclude_content = fs::read_to_string(info_dir.join("exclude")).unwrap();
-        assert!(exclude_content.contains(".workspaces/"));
+        assert!(exclude_content.contains(".worktrees/"));
     }
 
     #[test]
-    fn project_locator_ensure_workspace_directory_no_update_when_already_present() {
+    fn project_locator_ensure_worktree_directory_no_update_when_already_present() {
         let locator = ProjectLocator;
         let dir = tempdir().unwrap();
         let project = dir.path().join("project");
         let info_dir = project.join(".git").join("info");
         fs::create_dir_all(&info_dir).unwrap();
-        let original = "# existing exclude\n.workspaces/\n";
+        let original = "# existing exclude\n.worktrees/\n";
         fs::write(info_dir.join("exclude"), original).unwrap();
-        let workspace_dir = ".workspaces";
-        let result = locator.ensure_workspace_directory(&project, workspace_dir);
+        let worktree_dir = ".worktrees";
+        let result = locator.ensure_worktree_directory(&project, worktree_dir);
         assert!(result.is_ok());
-        assert!(project.join(workspace_dir).is_dir());
+        assert!(project.join(worktree_dir).is_dir());
         let exclude_content = fs::read_to_string(info_dir.join("exclude")).unwrap();
         assert_eq!(exclude_content, original);
     }
 
     #[test]
-    fn project_locator_ensure_workspace_directory_errors_when_create_dir_fails() {
+    fn project_locator_ensure_worktree_directory_errors_when_create_dir_fails() {
         let locator = ProjectLocator;
         let dir = tempdir().unwrap();
         let project = dir.path().join("project");
         let info_dir = project.join(".git").join("info");
         fs::create_dir_all(&info_dir).unwrap();
-        let workspace_dir = ".workspaces";
-        fs::write(project.join(workspace_dir), "blocker").unwrap();
-        let result = locator.ensure_workspace_directory(&project, workspace_dir);
+        let worktree_dir = ".worktrees";
+        fs::write(project.join(worktree_dir), "blocker").unwrap();
+        let result = locator.ensure_worktree_directory(&project, worktree_dir);
         assert!(result.is_err());
     }
 }

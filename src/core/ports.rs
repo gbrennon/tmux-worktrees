@@ -6,7 +6,7 @@ use std::path::Path;
 pub trait TmuxPort {
     fn show_error(&self, msg: &str) -> Result<()>;
     fn display_popup(&self, width: &str, height: &str, dir: &str, cmd: &str) -> Result<()>;
-    fn resolve_workspace_dir(&self) -> String;
+    fn resolve_worktree_dir(&self) -> String;
     fn resolve_shell_command(&self) -> String;
     fn select_or_create_window(&self, name: &str, path: &str, command: &str) -> Result<()>;
     fn get_option(&self, key: &str) -> Option<String>;

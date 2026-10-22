@@ -64,9 +64,9 @@ cd ~/my-project
 prefix + W
 ```
 Type `feat/foo` -> Enter. A worktree is created (by default at
-`.workspaces/feat-foo`) and a new tmux window `ws-feat/foo` opens there.
+`.worktrees/feat-foo`) and a new tmux window `wt-feat/foo` opens there.
 Press `prefix + W` again to switch between worktrees, including existing
-worktrees outside `.workspaces`; press `prefix + D` to clean up.
+worktrees outside `.worktrees`; press `prefix + D` to clean up.
 
 > Examples use [conventional branch][conv-branch] prefixes (`feat/`, `fix/`,
 > `chore/`), but any branch name works — `my-branch` or `bugfix/login` are
