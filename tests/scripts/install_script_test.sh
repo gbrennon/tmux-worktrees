@@ -38,7 +38,7 @@ if [[ "${CURL_FAIL_DOWNLOAD:-false}" == true && "$*" == *'releases/download'* ]]
   exit 1
 fi
 if [[ "$*" != *'releases/download'* ]]; then
-  printf '{"tag_name":"v0.4.0"}\n'
+  printf '{\n  "tag_name": "v0.4.0",\n  "assets": []\n}\n'
   exit 0
 fi
 output=''

@@ -54,9 +54,8 @@ release_asset_name() {
 
 get_latest_release_version() {
     curl -fsSL "$RELEASE_API" \
-        | grep -o '"tag_name":"[^"]*"' \
-        | head -n 1 \
-        | sed -E 's/"tag_name":"([^"]*)"/\1/'
+        | sed -nE 's/.*"tag_name"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/p' \
+        | head -n 1
 }
 
 download_prebuilt_binary() {
