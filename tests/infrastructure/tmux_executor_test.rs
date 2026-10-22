@@ -7,7 +7,7 @@ use tmux_worktrees::infrastructure::command_runner::{CommandRunner, SystemComman
 use tmux_worktrees::infrastructure::tmux_executor::TmuxExecutor;
 
 use super::common::fakes::command_runner::FakeRunner;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 use tmux_worktrees::utils::ShellQuoter;
 
 /// Wraps [`SystemCommandRunner`] and prepends `-L <socket>` to every `tmux`
@@ -98,18 +98,33 @@ fn executor_for_test(socket: &str) -> TmuxExecutor {
     }))
 }
 
+#[derive(Clone, Default)]
+struct RecordingRunner {
+    calls: Arc<Mutex<Vec<Vec<String>>>>,
+}
+
+impl CommandRunner for RecordingRunner {
+    fn run(&self, _program: &str, args: &[&str], _cwd: Option<&Path>) -> io::Result<Output> {
+        self.calls
+            .lock()
+            .unwrap()
+            .push(args.iter().map(|arg| (*arg).to_string()).collect());
+        Command::new("true").output()
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn tmux_executor_resolves_workspace_dir_default() {
+    fn tmux_executor_resolves_worktree_dir_default() {
         let socket = match ensure_test_server() {
             Some(s) => s,
             None => return,
         };
         let executor = executor_for_test(socket);
-        let result = executor.resolve_workspace_dir();
+        let result = executor.resolve_worktree_dir();
         assert!(!result.is_empty());
         assert!(!result.contains('/'));
     }
@@ -211,7 +226,7 @@ mod tests {
             .run(&["list-windows", "-F", "#{window_name}"])
             .unwrap();
         assert_eq!(status, 0);
-        assert!(stdout.lines().any(|l| l.trim() == "ws-test-branch"));
+        assert!(stdout.lines().any(|l| l.trim() == "wt-test-branch"));
 
         executor.kill_window("test-branch").unwrap();
     }
@@ -378,7 +393,7 @@ fn get_option_returns_none_when_empty_output() {
 }
 
 #[test]
-fn resolve_workspace_dir_reads_tmux_option() {
+fn resolve_worktree_dir_reads_tmux_option() {
     let f = FakeRunner::new();
     f.ok(
         "tmux",
@@ -388,13 +403,13 @@ fn resolve_workspace_dir_reads_tmux_option() {
         "",
     );
     assert_eq!(
-        executor_with(f).resolve_workspace_dir(),
+        executor_with(f).resolve_worktree_dir(),
         "my-worktrees".to_string()
     );
 }
 
 #[test]
-fn resolve_workspace_dir_falls_back_to_default() {
+fn resolve_worktree_dir_falls_back_to_default() {
     let f = FakeRunner::new();
     f.ok(
         "tmux",
@@ -404,8 +419,8 @@ fn resolve_workspace_dir_falls_back_to_default() {
         "invalid option\n",
     );
     assert_eq!(
-        executor_with(f).resolve_workspace_dir(),
-        ".workspaces".to_string()
+        executor_with(f).resolve_worktree_dir(),
+        ".worktrees".to_string()
     );
 }
 
@@ -507,10 +522,10 @@ fn window_exists_true_when_window_in_list() {
         "tmux",
         "list-windows:-F:#{window_name}",
         0,
-        "zsh\nws-feat-foo\nomp\n",
+        "zsh\nwt-feat-foo\nomp\n",
         "",
     );
-    assert!(executor_with(f).window_exists("ws-feat-foo").unwrap());
+    assert!(executor_with(f).window_exists("wt-feat-foo").unwrap());
 }
 
 #[test]
@@ -523,14 +538,14 @@ fn window_exists_false_when_window_not_in_list() {
         "zsh\nomp\n",
         "",
     );
-    assert!(!executor_with(f).window_exists("ws-nonexistent").unwrap());
+    assert!(!executor_with(f).window_exists("wt-nonexistent").unwrap());
 }
 
 #[test]
 fn window_exists_false_on_command_failure() {
     let f = FakeRunner::new();
     f.err("tmux", "list-windows:-F:#{window_name}");
-    assert!(!executor_with(f).window_exists("ws-any").unwrap());
+    assert!(!executor_with(f).window_exists("wt-any").unwrap());
 }
 
 #[test]
@@ -545,14 +560,14 @@ fn select_or_create_window_creates_new_window() {
     );
     f.ok(
         "tmux",
-        "new-window:-n:ws-feat-foo:-c:/tmp:sleep 30",
+        "new-window:-n:wt-feat-foo:-c:/tmp:sleep 30",
         0,
         "",
         "",
     );
     f.ok(
         "tmux",
-        "display-message:Created workspace: feat-foo",
+        "display-message:Created worktree: feat-foo",
         0,
         "",
         "",
@@ -569,13 +584,13 @@ fn select_or_create_window_resumes_existing() {
         "tmux",
         "list-windows:-F:#{window_name}",
         0,
-        "ws-feat-bar\nomp\n",
+        "wt-feat-bar\nomp\n",
         "",
     );
-    f.ok("tmux", "select-window:-t:ws-feat-bar", 0, "", "");
+    f.ok("tmux", "select-window:-t:wt-feat-bar", 0, "", "");
     f.ok(
         "tmux",
-        "display-message:Resumed workspace: feat-bar",
+        "display-message:Resumed worktree: feat-bar",
         0,
         "",
         "",
@@ -592,10 +607,10 @@ fn kill_window_kills_when_present() {
         "tmux",
         "list-windows:-F:#{window_name}",
         0,
-        "ws-feat-baz\n",
+        "wt-feat-baz\n",
         "",
     );
-    f.ok("tmux", "kill-window:-t:ws-feat-baz", 0, "", "");
+    f.ok("tmux", "kill-window:-t:wt-feat-baz", 0, "", "");
     executor_with(f).kill_window("feat-baz").unwrap();
 }
 
@@ -642,10 +657,22 @@ fn show_error_tries_popup_then_falls_back_to_display_message() {
 }
 
 #[test]
-fn show_error_succeeds_with_popup() {
-    let f = FakeRunner::new();
-    f.ok("tmux", &display_popup_key("tmux-worktrees-err"), 0, "", "");
-    executor_with(f).show_error("ok msg").unwrap();
+fn show_error_keeps_popup_open_until_keypress() {
+    let runner = RecordingRunner::default();
+    let calls = runner.calls.clone();
+    TmuxExecutor::with_runner(Box::new(runner))
+        .show_error("ok msg")
+        .unwrap();
+
+    let calls = calls.lock().unwrap();
+    let popup = calls
+        .iter()
+        .find(|args| args.first().map(String::as_str) == Some("display-popup"))
+        .expect("show_error should open a popup");
+    let command = popup.last().expect("popup should include a command");
+    assert!(command.contains("Press any key to close..."));
+    assert!(command.contains("bash -c 'read -r -n 1'"));
+    assert!(!command.contains("read -t"));
 }
 
 /// Build the key that the `FakeRunner` will see for the display-popup call
@@ -658,7 +685,7 @@ fn display_popup_key(_txt_prefix: &str) -> String {
         .to_string();
     let quoted = ShellQuoter::quote(&tmp);
     let cmd = format!(
-        "cat {quoted}; echo; echo 'Press any key or wait 10s...'; read -t 10 -n1 2>/dev/null || true; rm -f {quoted}"
+        "cat {quoted}; echo; echo 'Press any key to close...'; bash -c 'read -r -n 1' 2>/dev/null || true; rm -f {quoted}"
     );
     format!("display-popup:-E:-h:20:{cmd}")
 }

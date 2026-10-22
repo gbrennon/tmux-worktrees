@@ -37,6 +37,16 @@ fn cli_default(tmux: impl TmuxPort + 'static, git: impl GitPort + 'static) -> Cl
     cli_with(tmux, git, StubSelector)
 }
 
+fn linked_worktree_root() -> tempfile::TempDir {
+    let root = tempfile::tempdir().unwrap();
+    std::fs::write(
+        root.path().join(".git"),
+        "gitdir: /some/where/.git/worktrees/test\n",
+    )
+    .unwrap();
+    root
+}
+
 #[test]
 fn parse_args_defaults_to_choose() {
     let cli = cli_default(StubTmx, StubGit);
@@ -114,8 +124,8 @@ fn run_interactive_from_non_tty_uses_popup_path() {
     let tmux = FakeTmxNonTty::new();
     let guard = tmux.clone();
     let cli = cli_default(tmux, StubGit);
-    let root = std::env::current_dir().unwrap();
-    unsafe { std::env::set_var("TMUX_WORKTREES_ROOT", root.to_str().unwrap()) };
+    let root = linked_worktree_root();
+    unsafe { std::env::set_var("TMUX_WORKTREES_ROOT", root.path()) };
     let result = cli.spawn_in_popup(&["tmux-worktrees".to_string(), "choose".to_string()]);
     assert!(result.is_ok());
     assert!(!guard.show_error_called.get());
@@ -124,12 +134,39 @@ fn run_interactive_from_non_tty_uses_popup_path() {
 
 #[test]
 fn spawn_in_popup_calls_display_popup_when_root_found() {
+    let root = linked_worktree_root();
+    unsafe { std::env::set_var("TMUX_WORKTREES_ROOT", root.path()) };
     let tmux = FakeTmxPopupOk::new();
     let guard = tmux.clone();
     let cli = cli_default(tmux, StubGit);
     let result = cli.spawn_in_popup(&["tmux-worktrees".to_string(), "choose".to_string()]);
+    unsafe {
+        std::env::remove_var("TMUX_WORKTREES_ROOT");
+    }
     assert!(result.is_ok());
     assert!(guard.display_called.get());
+}
+
+#[test]
+fn spawn_in_popup_rejects_a_main_repository() {
+    let temporary_repository = tempfile::tempdir().unwrap();
+    std::fs::create_dir(temporary_repository.path().join(".git")).unwrap();
+    unsafe {
+        std::env::set_var("TMUX_WORKTREES_ROOT", temporary_repository.path());
+    }
+
+    let tmux = FakeTmxPopupOk::new();
+    let guard = tmux.clone();
+    let cli = cli_default(tmux, StubGit);
+    let error = cli
+        .spawn_in_popup(&["tmux-worktrees".to_string(), "choose".to_string()])
+        .unwrap_err();
+
+    unsafe {
+        std::env::remove_var("TMUX_WORKTREES_ROOT");
+    }
+    assert!(error.to_string().contains("Git worktree"));
+    assert!(!guard.display_called.get());
 }
 
 #[test]
@@ -140,9 +177,9 @@ fn run_create_shows_error_on_empty_branch() {
 }
 
 #[test]
-fn create_workspace_uses_origin_prefix_when_remote_exists() {
+fn create_worktree_uses_origin_prefix_when_remote_exists() {
     let cli = cli_default(StubTmx, FakeGitWorktreeAdd);
-    let result = cli.create_workspace(
+    let result = cli.create_worktree(
         Path::new("/tmp/repo"),
         Path::new("/tmp/test-target"),
         "feat/x",
@@ -152,9 +189,9 @@ fn create_workspace_uses_origin_prefix_when_remote_exists() {
 }
 
 #[test]
-fn create_workspace_uses_local_branch_when_no_remote() {
+fn create_worktree_uses_local_branch_when_no_remote() {
     let cli = cli_default(StubTmx, FakeGitWorktreeAddLocal);
-    let result = cli.create_workspace(
+    let result = cli.create_worktree(
         Path::new("/tmp/repo"),
         Path::new("/tmp/test-target"),
         "feat/x",
@@ -164,9 +201,9 @@ fn create_workspace_uses_local_branch_when_no_remote() {
 }
 
 #[test]
-fn create_workspace_propagates_git_errors() {
+fn create_worktree_propagates_git_errors() {
     let cli = cli_default(StubTmx, FakeGitWorktreeFail);
-    let result = cli.create_workspace(
+    let result = cli.create_worktree(
         Path::new("/tmp/repo"),
         Path::new("/tmp/test-target"),
         "feat/x",
@@ -176,62 +213,62 @@ fn create_workspace_propagates_git_errors() {
 }
 
 #[test]
-fn remove_workspace_skips_kill_window_when_branch_empty() {
+fn remove_worktree_skips_kill_window_when_branch_empty() {
     let cli = cli_default(StubTmx, FakeGitWorktreeRemove);
-    let result = cli.remove_workspace(Path::new("/tmp/repo"), Path::new("/tmp/ws"), "");
+    let result = cli.remove_worktree(Path::new("/tmp/repo"), Path::new("/tmp/ws"), "");
     assert!(result.is_ok());
 }
 
 #[test]
-fn remove_workspace_with_branch_calls_kill_window() {
+fn remove_worktree_with_branch_calls_kill_window() {
     let cli = cli_default(FakeTmxWithWindow, FakeGitWorktreeRemove);
-    let result = cli.remove_workspace(Path::new("/tmp/repo"), Path::new("/tmp/ws"), "feat/x");
+    let result = cli.remove_worktree(Path::new("/tmp/repo"), Path::new("/tmp/ws"), "feat/x");
     assert!(result.is_ok());
 }
 
 #[test]
-fn remove_workspace_propagates_git_error() {
+fn remove_worktree_propagates_git_error() {
     let cli = cli_default(FakeTmxNoWindow, FakeGitWorktreeRemoveFail);
-    let result = cli.remove_workspace(Path::new("/tmp/repo"), Path::new("/tmp/ws"), "feat/x");
+    let result = cli.remove_worktree(Path::new("/tmp/repo"), Path::new("/tmp/ws"), "feat/x");
     assert!(result.is_err());
 }
 
 #[test]
-fn workspace_branch_returns_question_mark_on_failure() {
+fn worktree_branch_returns_question_mark_on_failure() {
     let cli = cli_default(StubTmx, FakeGitRevParseFail);
-    let result = cli.workspace_branch(Path::new("/tmp/ws"));
+    let result = cli.worktree_branch(Path::new("/tmp/ws"));
     assert!(result.is_ok());
     assert_eq!(result.unwrap(), "?");
 }
 
 #[test]
-fn workspace_branch_returns_branch_name_on_success() {
+fn worktree_branch_returns_branch_name_on_success() {
     let cli = cli_default(StubTmx, FakeGitRevParseOk);
-    let result = cli.workspace_branch(Path::new("/tmp/ws"));
+    let result = cli.worktree_branch(Path::new("/tmp/ws"));
     assert!(result.is_ok());
     assert_eq!(result.unwrap(), "feat/x\n");
 }
 
 #[test]
-fn workspace_branch_returns_detached_head() {
+fn worktree_branch_returns_detached_head() {
     let cli = cli_default(StubTmx, FakeGitRevParseDetached);
-    let result = cli.workspace_branch(Path::new("/tmp/ws"));
+    let result = cli.worktree_branch(Path::new("/tmp/ws"));
     assert!(result.is_ok());
     assert_eq!(result.unwrap(), "HEAD\n");
 }
 
 #[test]
-fn list_workspaces_returns_empty_on_nonzero_status() {
+fn list_worktrees_returns_empty_on_nonzero_status() {
     let cli = cli_default(StubTmx, FakeGitWorktreeListFail);
-    let result = cli.list_workspaces(Path::new("/tmp/repo"), "worktrees");
+    let result = cli.list_worktrees(Path::new("/tmp/repo"), "worktrees");
     assert!(result.is_ok());
     assert!(result.unwrap().is_empty());
 }
 
 #[test]
-fn list_workspaces_returns_worktree_paths() {
+fn list_worktrees_returns_worktree_paths() {
     let cli = cli_default(StubTmx, FakeGitWorktreeListOk);
-    let result = cli.list_workspaces(Path::new("/tmp/repo"), "worktrees");
+    let result = cli.list_worktrees(Path::new("/tmp/repo"), "worktrees");
     assert!(result.is_ok());
     let paths = result.unwrap();
     assert_eq!(paths.len(), 2);
@@ -240,7 +277,7 @@ fn list_workspaces_returns_worktree_paths() {
 }
 
 #[test]
-fn list_workspaces_includes_worktrees_outside_configured_directory() {
+fn list_worktrees_includes_worktrees_outside_configured_directory() {
     let cli = cli_default(
         StubTmx,
         FakeGitPorcelain::new(
@@ -248,7 +285,7 @@ fn list_workspaces_includes_worktrees_outside_configured_directory() {
         ),
     );
     let paths = cli
-        .list_workspaces(Path::new("/tmp/repo"), "worktrees")
+        .list_worktrees(Path::new("/tmp/repo"), "worktrees")
         .unwrap();
 
     assert_eq!(
@@ -261,9 +298,9 @@ fn list_workspaces_includes_worktrees_outside_configured_directory() {
 }
 
 #[test]
-fn list_workspace_names_extracts_sorted_names() {
+fn list_worktree_names_extracts_sorted_names() {
     let cli = cli_default(StubTmx, FakeGitWorktreeListOk);
-    let result = cli.list_workspace_names(Path::new("/tmp/repo"), "worktrees");
+    let result = cli.list_worktree_names(Path::new("/tmp/repo"), "worktrees");
     assert!(result.is_ok());
     let names = result.unwrap();
     assert_eq!(names, vec!["feat-a", "fix-b"]);
@@ -342,7 +379,7 @@ fn run_error_path_shows_error_when_dispatch_fails() {
 }
 
 #[test]
-fn run_create_shows_error_when_workspace_creation_fails() {
+fn run_create_shows_error_when_worktree_creation_fails() {
     let fake_tmux = FakeTmxWindowFail::new();
     let show_error_called = fake_tmux.show_error_called.clone();
     let cli = cli_default(fake_tmux, FakeGitWorktreeFail);
@@ -353,7 +390,7 @@ fn run_create_shows_error_when_workspace_creation_fails() {
     );
     assert!(
         show_error_called.get(),
-        "show_error should be called when create_workspace fails"
+        "show_error should be called when create_worktree fails"
     );
 }
 
@@ -403,7 +440,7 @@ fn run_choose_returns_cancelled() {
 }
 
 #[test]
-fn run_choose_no_workspaces_shows_header_and_cancels() {
+fn run_choose_no_worktrees_shows_header_and_cancels() {
     let selector = FakeSelector::new(vec![SelectionResult::Cancelled]);
     let cli = cli_with(
         FakeTmxTest::new(REPO),
@@ -415,7 +452,7 @@ fn run_choose_no_workspaces_shows_header_and_cancels() {
 }
 
 #[test]
-fn run_choose_creates_workspace_for_custom_branch() {
+fn run_choose_creates_worktree_for_custom_branch() {
     let selector = FakeSelector::new(vec![SelectionResult::Custom("my-branch".into())]);
     let cli = cli_with(
         FakeTmxTest::new(REPO),
@@ -450,7 +487,7 @@ fn run_choose_opens_existing_worktree_after_branch_rename() {
     let cli = cli_with(tmux, git, selector);
 
     let names = cli
-        .list_workspace_names(repository_path, ".worktrees")
+        .list_worktree_names(repository_path, ".worktrees")
         .unwrap();
     assert_eq!(names, vec!["external-worktree"]);
     let result = cli.run_choose();
@@ -472,7 +509,7 @@ fn run_choose_opens_existing_worktree_after_branch_rename() {
 }
 
 #[test]
-fn run_cleanup_removes_workspace_and_deletes_branch() {
+fn run_cleanup_removes_worktree_and_deletes_branch() {
     let tmux = FakeTmxTest::new(REPO);
     let kill_called = tmux.kill_called.clone();
     let display_msgs = tmux.display_msgs.clone();
@@ -486,10 +523,10 @@ fn run_cleanup_removes_workspace_and_deletes_branch() {
     assert!(result.is_ok(), "expected Ok, got {:?}", result);
     assert!(kill_called.get(), "kill_window should have been called");
     let msgs: Vec<_> = display_msgs.borrow().iter().cloned().collect();
-    let found = msgs.iter().any(|m| m.contains("Removed workspace: feat-a"));
+    let found = msgs.iter().any(|m| m.contains("Removed worktree: feat-a"));
     assert!(
         found,
-        "display-message for removed workspace not found in {:?}",
+        "display-message for removed worktree not found in {:?}",
         msgs
     );
 }
@@ -517,14 +554,14 @@ fn run_cleanup_shows_error_on_removal_failure() {
     );
     let msg = show_error_msg.borrow();
     assert!(
-        msg.contains("Workspace removal failed"),
+        msg.contains("Worktree removal failed"),
         "unexpected error message: {}",
         msg
     );
 }
 
 #[test]
-fn run_cleanup_empty_workspaces_shows_message() {
+fn run_cleanup_empty_worktrees_shows_message() {
     let tmux = FakeTmxTest::new(REPO);
     let show_error_called = tmux.show_error_called.clone();
     let selector = FakeSelector::new(vec![SelectionResult::Cancelled]);
@@ -537,7 +574,7 @@ fn run_cleanup_empty_workspaces_shows_message() {
     assert!(result.is_ok(), "expected Ok, got {:?}", result);
     assert!(
         show_error_called.get(),
-        "show_error should have been called for empty workspaces"
+        "show_error should have been called for empty worktrees"
     );
 }
 
@@ -563,11 +600,11 @@ fn run_cleanup_shows_loading_during_fetch() {
 }
 
 #[test]
-fn create_workspace_shows_loading_during_fetch() {
+fn create_worktree_shows_loading_during_fetch() {
     let loading = FakeLoading::new();
     let loading_labels = loading.labels.clone();
     let cli = cli_with_loading(StubTmx, FakeGitWorktreeAdd, StubSelector, loading);
-    let result = cli.create_workspace(
+    let result = cli.create_worktree(
         Path::new("/tmp/repo"),
         Path::new("/tmp/test-target"),
         "feat/x",

@@ -200,7 +200,7 @@ fn resolve_default_branch_in_ephemeral_repo() {
 }
 
 #[test]
-fn list_workspaces_empty_when_no_worktrees() {
+fn list_worktrees_empty_when_no_worktrees() {
     let guard = init_ephemeral_repo();
     let cli = cli_with(
         StubTmx,
@@ -208,15 +208,15 @@ fn list_workspaces_empty_when_no_worktrees() {
         StubSelector,
         FakeLoading::new(),
     );
-    let workspaces = cli.list_workspaces(guard.repo_path(), "worktrees").unwrap();
+    let worktrees = cli.list_worktrees(guard.repo_path(), "worktrees").unwrap();
     assert!(
-        workspaces.is_empty(),
-        "expected no worktrees in fresh repo, got {workspaces:?}"
+        worktrees.is_empty(),
+        "expected no worktrees in fresh repo, got {worktrees:?}"
     );
 }
 
 #[test]
-fn list_workspace_names_empty_initially() {
+fn list_worktree_names_empty_initially() {
     let guard = init_ephemeral_repo();
     let cli = cli_with(
         StubTmx,
@@ -225,7 +225,7 @@ fn list_workspace_names_empty_initially() {
         FakeLoading::new(),
     );
     let names = cli
-        .list_workspace_names(guard.repo_path(), "worktrees")
+        .list_worktree_names(guard.repo_path(), "worktrees")
         .unwrap();
     assert!(names.is_empty());
 }
@@ -243,16 +243,16 @@ fn worktree_full_lifecycle() {
 
     let cli = cli_with(tmux, git, StubSelector, FakeLoading::new());
 
-    cli.create_workspace(repo_root, &target, branch, "main")
+    cli.create_worktree(repo_root, &target, branch, "main")
         .unwrap();
 
-    let workspaces = cli.list_workspaces(repo_root, "worktrees").unwrap();
-    assert!(workspaces.is_empty());
+    let worktrees = cli.list_worktrees(repo_root, "worktrees").unwrap();
+    assert!(worktrees.is_empty());
 
-    let found_branch = cli.workspace_branch(&target).unwrap();
+    let found_branch = cli.worktree_branch(&target).unwrap();
     assert_eq!(found_branch, branch);
 
-    cli.remove_workspace(repo_root, &target, branch).unwrap();
+    cli.remove_worktree(repo_root, &target, branch).unwrap();
 
     assert!(kill_called.get());
 }
@@ -272,14 +272,14 @@ fn create_multiple_worktrees_and_list_all() {
 
     branches.iter().for_each(|&b| {
         let t = guard.work_dir().join(b);
-        cli.create_workspace(repo_root, &t, b, "main").unwrap();
+        cli.create_worktree(repo_root, &t, b, "main").unwrap();
         targets.push((t, b));
     });
 
     assert_eq!(targets.len(), 3);
 
     targets.iter().for_each(|(t, b)| {
-        cli.remove_workspace(repo_root, t, b).unwrap();
+        cli.remove_worktree(repo_root, t, b).unwrap();
     });
 
     assert!(kill_called.get());
@@ -297,20 +297,20 @@ fn delete_branch_removes_it() {
 
     let cli = cli_with(tmux, git, StubSelector, FakeLoading::new());
 
-    cli.create_workspace(repo_root, &target, branch, "main")
+    cli.create_worktree(repo_root, &target, branch, "main")
         .unwrap();
-    cli.remove_workspace(repo_root, &target, branch).unwrap();
+    cli.remove_worktree(repo_root, &target, branch).unwrap();
 
     cli.delete_branch(repo_root, branch);
 
     let branch_target = guard.work_dir().join("feat-to-delete-v2");
-    cli.create_workspace(repo_root, &branch_target, branch, "main")
+    cli.create_worktree(repo_root, &branch_target, branch, "main")
         .unwrap();
 
-    let found = cli.workspace_branch(&branch_target).unwrap();
+    let found = cli.worktree_branch(&branch_target).unwrap();
     assert_eq!(found, branch);
 
-    cli.remove_workspace(repo_root, &branch_target, branch)
+    cli.remove_worktree(repo_root, &branch_target, branch)
         .unwrap();
     cli.delete_branch(repo_root, branch);
 }

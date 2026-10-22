@@ -1,7 +1,8 @@
 use fuzzy_matcher::{FuzzyMatcher, clangd::ClangdMatcher};
 use ratatui::{
-    layout::{Constraint, Direction, Layout},
+    layout::{Constraint, Direction, Layout, Position},
     style::{Color, Style},
+    text::Text,
     widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
 };
 
@@ -100,11 +101,24 @@ impl RatatuiSelector {
                         Constraint::Min(0),
                     ])
                     .split(area);
-                let input = Paragraph::new(format!("{prompt}{}", selector.query()))
-                    .block(Block::default().borders(Borders::ALL));
+                let input_text = format!("{prompt}{}", selector.query());
+                let input = Paragraph::new(input_text.clone())
+                    .style(Style::default().fg(Color::White))
+                    .block(
+                        Block::default()
+                            .borders(Borders::ALL)
+                            .border_style(Style::default().fg(Color::Cyan)),
+                    );
                 let hint = Paragraph::new(header).style(Style::default().fg(Color::DarkGray));
                 f.render_widget(input, chunks[0]);
                 f.render_widget(hint, chunks[1]);
+
+                let cursor_x = chunks[0]
+                    .x
+                    .saturating_add(1)
+                    .saturating_add(Text::raw(input_text).width() as u16)
+                    .min(chunks[0].right().saturating_sub(1));
+                f.set_cursor_position(Position::new(cursor_x, chunks[0].y.saturating_add(1)));
 
                 let list_items: Vec<ListItem> = filtered
                     .iter()
@@ -113,9 +127,14 @@ impl RatatuiSelector {
                 let mut ls = ListState::default();
                 ls.select(Some(selector.selected_index()));
                 let list = List::new(list_items)
-                    .block(Block::default().borders(Borders::ALL))
+                    .style(Style::default().fg(Color::White))
+                    .block(
+                        Block::default()
+                            .borders(Borders::ALL)
+                            .border_style(Style::default().fg(Color::Blue)),
+                    )
                     .highlight_symbol("> ")
-                    .highlight_style(Style::default().fg(Color::Yellow));
+                    .highlight_style(Style::default().fg(Color::Yellow).bg(Color::DarkGray));
                 f.render_stateful_widget(list, chunks[2], &mut ls);
             })?;
 
@@ -146,12 +165,13 @@ impl SelectorRunner for RatatuiSelector {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ratatui::{Frame, Terminal};
+    use ratatui::{Frame, Terminal, layout::Position};
     use std::cell::RefCell;
 
     thread_local! {
         static EVENTS: RefCell<Vec<crossterm::event::Event>> =
             const { RefCell::new(Vec::new()) };
+        static LAST_CURSOR_POSITION: RefCell<Option<Position>> = const { RefCell::new(None) };
         static SETUP_FAILS: RefCell<bool> = const { RefCell::new(false) };
         static DRAW_FAILS: RefCell<bool> = const { RefCell::new(false) };
         static READ_FAILS: RefCell<bool> = const { RefCell::new(false) };
@@ -160,6 +180,7 @@ mod tests {
 
     fn reset_fake_state() {
         EVENTS.with(|e| e.borrow_mut().clear());
+        LAST_CURSOR_POSITION.with(|p| *p.borrow_mut() = None);
         SETUP_FAILS.with(|f| *f.borrow_mut() = false);
         DRAW_FAILS.with(|f| *f.borrow_mut() = false);
         READ_FAILS.with(|f| *f.borrow_mut() = false);
@@ -260,10 +281,16 @@ mod tests {
             if DRAW_FAILS.with(|d| *d.borrow()) {
                 return Err(Error::new("Simulated draw failure"));
             }
-            terminal
+            let result = terminal
                 .draw(f)
                 .map(|_| ())
-                .map_err(|e| Error::new(format!("Failed to draw terminal: {}", e)))
+                .map_err(|e| Error::new(format!("Failed to draw terminal: {}", e)));
+            if result.is_ok() {
+                LAST_CURSOR_POSITION.with(|p| {
+                    *p.borrow_mut() = Some(terminal.backend().cursor_position());
+                });
+            }
+            result
         }
 
         fn read_event(&self) -> Result<crossterm::event::Event> {
@@ -292,6 +319,18 @@ mod tests {
         header: &str,
     ) -> Result<SelectionResult> {
         RatatuiSelector::run_with_backend(&FakeTerminal, selector, &[], prompt, header)
+    }
+
+    #[test]
+    fn cursor_is_positioned_after_prompt_and_query() {
+        reset_fake_state();
+        push_events(vec![key_char('x'), key_esc()]);
+
+        let mut selector = Selector::new(vec!["x".into()], false);
+        run_with_fake(&mut selector, "> ", "hint").unwrap();
+
+        let cursor = LAST_CURSOR_POSITION.with(|p| *p.borrow());
+        assert_eq!(cursor, Some(Position::new(4, 1)));
     }
 
     #[test]

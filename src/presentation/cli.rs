@@ -10,7 +10,7 @@ use crate::core::{
     ports::{GitPort, TmuxPort},
     project_locator::ProjectLocator,
     selector::{SelectionResult, Selector},
-    workspace_resolver::WorkspaceResolver,
+    worktree_resolver::WorktreeResolver,
 };
 
 /// Presentation-layer CLI — owns the tmux, git, selector and loading adapters
@@ -42,10 +42,7 @@ impl Cli {
         let (cmd, rest) = self.parse_args(args);
 
         let result = if cmd.is_interactive() && !std::io::stdin().is_terminal() {
-            match self.spawn_in_popup(args) {
-                Ok(()) => Ok(()),
-                Err(_) => self.dispatch(cmd, &rest),
-            }
+            self.spawn_in_popup(args)
         } else {
             self.dispatch(cmd, &rest)
         };
@@ -101,6 +98,7 @@ impl Cli {
                 return Ok(());
             }
         };
+        ProjectLocator::require_worktree(Path::new(&root))?;
         let exe = std::env::current_exe().unwrap_or_else(|_| {
             args.first()
                 .map(std::path::PathBuf::from)
@@ -126,9 +124,9 @@ impl Cli {
         })?;
         let repo_root_path = Path::new(&repo_root);
         std::env::set_current_dir(repo_root_path)?;
-        let worktree_dir = self.tmux.resolve_workspace_dir();
-        let workspaces = self.list_workspaces(repo_root_path, &worktree_dir)?;
-        let mut existing: Vec<_> = workspaces
+        let worktree_dir = self.tmux.resolve_worktree_dir();
+        let worktrees = self.list_worktrees(repo_root_path, &worktree_dir)?;
+        let mut existing: Vec<_> = worktrees
             .into_iter()
             .filter_map(|path| {
                 let name = path.file_name()?.to_string_lossy().into_owned();
@@ -138,7 +136,7 @@ impl Cli {
         existing.sort_by(|a, b| a.0.cmp(&b.0));
         let existing_names: Vec<String> = existing.iter().map(|(name, _)| name.clone()).collect();
         let header = if existing_names.is_empty() {
-            "No workspaces yet — type a name and press Enter to create"
+            "No worktrees yet — type a name and press Enter to create"
         } else {
             "Type to filter, Enter to select/create"
         };
@@ -146,15 +144,15 @@ impl Cli {
         let filtered = selector.filter("");
         let picked = self
             .selector
-            .run_selector(&mut selector, &filtered, "Workspace> ", header)?;
+            .run_selector(&mut selector, &filtered, "Worktree> ", header)?;
         match picked {
             SelectionResult::Selected(i) => {
                 let (display_name, worktree_path) = &existing[i];
                 let branch = self
-                    .workspace_branch(worktree_path)
+                    .worktree_branch(worktree_path)
                     .unwrap_or_else(|_| display_name.clone());
                 if !branch.is_empty() && branch != "?" {
-                    return self.open_workspace_window(&branch, worktree_path);
+                    return self.open_worktree_window(&branch, worktree_path);
                 }
                 self.run_create(display_name)
             }
@@ -166,7 +164,7 @@ impl Cli {
     pub fn run_create(&self, branch: &str) -> Result<()> {
         if branch.trim().is_empty() {
             self.tmux.show_error(
-                "Branch name cannot be empty — type a name (e.g. feat/foo) or select an existing workspace",
+                "Branch name cannot be empty — type a name (e.g. feat/foo) or select an existing worktree",
             )?;
             return Ok(());
         }
@@ -175,24 +173,23 @@ impl Cli {
         })?;
         let repo_root_path = Path::new(&repo_root);
         std::env::set_current_dir(repo_root_path)?;
-        let worktree_dir = self.tmux.resolve_workspace_dir();
+        let worktree_dir = self.tmux.resolve_worktree_dir();
         let project_locator = ProjectLocator;
-        project_locator.ensure_workspace_directory(repo_root_path, &worktree_dir)?;
-        let target = WorkspaceResolver.resolve_path(repo_root_path, &worktree_dir, branch);
+        project_locator.ensure_worktree_directory(repo_root_path, &worktree_dir)?;
+        let target = WorktreeResolver.resolve_path(repo_root_path, &worktree_dir, branch);
         if !target.is_dir() {
             let default_branch = self.resolve_default_branch(repo_root_path)?;
-            if let Err(e) = self.create_workspace(repo_root_path, &target, branch, &default_branch)
-            {
+            if let Err(e) = self.create_worktree(repo_root_path, &target, branch, &default_branch) {
                 self.tmux
-                    .show_error(&format!("Workspace creation failed:\n\n{e:#}"))?;
+                    .show_error(&format!("Worktree creation failed:\n\n{e:#}"))?;
                 return Ok(());
             }
         }
-        self.open_workspace_window(branch, &target)
+        self.open_worktree_window(branch, &target)
     }
 
-    fn open_workspace_window(&self, branch: &str, target: &Path) -> Result<()> {
-        let target_abs = WorkspaceResolver.resolve_absolute(target);
+    fn open_worktree_window(&self, branch: &str, target: &Path) -> Result<()> {
+        let target_abs = WorktreeResolver.resolve_absolute(target);
         let command = self.tmux.resolve_shell_command();
         self.tmux
             .select_or_create_window(branch, &target_abs, &command)?;
@@ -205,7 +202,7 @@ impl Cli {
         })?;
         let repo_root_path = Path::new(&repo_root);
         std::env::set_current_dir(repo_root_path)?;
-        let worktree_dir = self.tmux.resolve_workspace_dir();
+        let worktree_dir = self.tmux.resolve_worktree_dir();
         let default_branch = self.resolve_default_branch(repo_root_path)?;
         let auto_fetch = self
             .tmux
@@ -226,14 +223,12 @@ impl Cli {
                 }),
             );
         }
-        let workspaces = self.list_workspaces(repo_root_path, &worktree_dir)?;
+        let worktrees = self.list_worktrees(repo_root_path, &worktree_dir)?;
         let mut items = Vec::new();
         let mut paths = Vec::new();
         let merge_checker = MergeChecker;
-        for ws in &workspaces {
-            let branch = self
-                .workspace_branch(ws)
-                .unwrap_or_else(|_| "?".to_string());
+        for ws in &worktrees {
+            let branch = self.worktree_branch(ws).unwrap_or_else(|_| "?".to_string());
             let merged = merge_checker
                 .is_merged(ws, &default_branch, |dir, remote| {
                     self.git
@@ -252,7 +247,7 @@ impl Cli {
         }
         if items.is_empty() {
             self.tmux.show_error(&format!(
-                "No workspaces found in {worktree_dir}/ — press Enter to dismiss"
+                "No worktrees found in {worktree_dir}/ — press Enter to dismiss"
             ))?;
             return Ok(());
         }
@@ -262,26 +257,26 @@ impl Cli {
         let picked = self.selector.run_selector(
             &mut selector,
             &filtered,
-            "Remove workspace> ",
-            "Enter to remove selected workspace",
+            "Remove worktree> ",
+            "Enter to remove selected worktree",
         )?;
         let idx = match picked {
             SelectionResult::Selected(i) => i,
             _ => return Ok(()),
         };
         let ws_dir = &paths[idx];
-        let branch = WorkspaceResolver
+        let branch = WorktreeResolver
             .extract_branch_from_display(&items_clone[idx])
             .unwrap_or_default();
-        if let Err(e) = self.remove_workspace(repo_root_path, ws_dir, &branch) {
+        if let Err(e) = self.remove_worktree(repo_root_path, ws_dir, &branch) {
             self.tmux
-                .show_error(&format!("Workspace removal failed:\n\n{e:#}"))?;
+                .show_error(&format!("Worktree removal failed:\n\n{e:#}"))?;
             return Ok(());
         }
         self.delete_branch(repo_root_path, &branch);
         let _ = self
             .tmux
-            .run(&["display-message", &format!("Removed workspace: {branch}")]);
+            .run(&["display-message", &format!("Removed worktree: {branch}")]);
         Ok(())
     }
 
@@ -343,7 +338,7 @@ impl Cli {
         Ok(project_locator.determine_default_branch(&global, &local, &current))
     }
 
-    pub fn list_workspaces(
+    pub fn list_worktrees(
         &self,
         repo_root: &Path,
         _work_dir: &str,
@@ -366,9 +361,9 @@ impl Cli {
         Ok(res)
     }
 
-    pub fn list_workspace_names(&self, repo_root: &Path, work_dir: &str) -> Result<Vec<String>> {
+    pub fn list_worktree_names(&self, repo_root: &Path, work_dir: &str) -> Result<Vec<String>> {
         let mut names: Vec<String> = self
-            .list_workspaces(repo_root, work_dir)?
+            .list_worktrees(repo_root, work_dir)?
             .iter()
             .filter_map(|p| p.file_name().map(|n| n.to_string_lossy().into_owned()))
             .collect();
@@ -376,7 +371,7 @@ impl Cli {
         Ok(names)
     }
 
-    pub fn create_workspace(
+    pub fn create_worktree(
         &self,
         repo_root: &Path,
         target: &Path,
@@ -423,7 +418,7 @@ impl Cli {
         Ok(())
     }
 
-    pub fn remove_workspace(&self, repo_root: &Path, ws_dir: &Path, branch: &str) -> Result<()> {
+    pub fn remove_worktree(&self, repo_root: &Path, ws_dir: &Path, branch: &str) -> Result<()> {
         if !branch.is_empty() {
             self.tmux.kill_window(branch)?;
         }
@@ -441,7 +436,7 @@ impl Cli {
         Ok(())
     }
 
-    pub fn workspace_branch(&self, ws_dir: &Path) -> Result<String> {
+    pub fn worktree_branch(&self, ws_dir: &Path) -> Result<String> {
         let (status, out, _) = self
             .git
             .run_in(ws_dir, &["rev-parse", "--abbrev-ref", "HEAD"])?;
