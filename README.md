@@ -29,8 +29,9 @@ set -g @plugin 'gbrennon/tmux-worktrees'
 ```
 
 Also needs tmux >= 3.2, git >= 2.28, bash >= 4.0, `curl`, and `tar`.
-TPM downloads a pre-built binary when one is available and otherwise builds it
-with the Rust toolchain.
+TPM and tpack download the Linux x86_64 pre-built binary from the GitHub
+release when one is available. Other platforms, missing assets, and manual
+checkouts fall back to building with the Rust toolchain.
 
 ---
 

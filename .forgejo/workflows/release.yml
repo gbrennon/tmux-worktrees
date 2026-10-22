@@ -50,6 +50,13 @@ jobs:
           github-token: ${{ secrets.GH_RELEASE_TOKEN }}
           cargo-token: ${{ secrets.CARGO_REGISTRY_TOKEN }}
 
+      - name: Build Linux release asset
+        id: asset
+        shell: bash
+        env:
+          VERSION: ${{ steps.release.outputs.version }}
+        run: bash scripts/package_release_asset.sh
+
       - name: Publish crate to crates.io
         uses: ./.forgejo/actions/publish-crate
         with:
@@ -74,6 +81,7 @@ jobs:
           version: ${{ steps.release.outputs.version }}
 
       - name: Create GitHub release
+        id: github-release
         uses: ./.forgejo/actions/create-release
         with:
           api-url: https://api.github.com
@@ -82,3 +90,10 @@ jobs:
           auth-scheme: Bearer
           merge-commit-sha: ${{ github.event.pull_request.merge_commit_sha }}
           version: ${{ steps.release.outputs.version }}
+
+      - name: Upload GitHub release asset
+        uses: ./.forgejo/actions/upload-release-asset
+        with:
+          upload-url: ${{ steps.github-release.outputs.upload-url }}
+          token: ${{ secrets.GH_RELEASE_TOKEN }}
+          asset: ${{ steps.asset.outputs.asset }}

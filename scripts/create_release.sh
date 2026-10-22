@@ -40,4 +40,12 @@ if [[ "$status" != 2* ]]; then
   cat "$response_file" >&2
   exit 1
 fi
+release_id="$(jq -r '.id' "$response_file")"
+upload_url="$(jq -r '.upload_url // empty' "$response_file" | sed 's/{?name,label}$//')"
+if [[ -z "$release_id" || "$release_id" == null || -z "$upload_url" ]]; then
+  printf 'Release API response did not include release id and upload URL\n' >&2
+  exit 1
+fi
+printf 'release-id=%s\n' "$release_id" >> "${GITHUB_OUTPUT:-/dev/null}"
+printf 'upload-url=%s\n' "$upload_url" >> "${GITHUB_OUTPUT:-/dev/null}"
 cat "$response_file"
