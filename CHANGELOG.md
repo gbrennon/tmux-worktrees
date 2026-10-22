@@ -10,16 +10,19 @@ All notable changes to this project are documented here.
 
 ### Fixed
 - Parse GitHub release metadata ([7413fbb](https://codeberg.org/gbrennon/tmux-worktrees/commit/7413fbbd024c435d5ad0e098a2f6756d97967f75))
+- Ignore generated release assets ([a570866](https://codeberg.org/gbrennon/tmux-worktrees/commit/a57086685295fa582ad7d63b55f3a46381da4f10))
 
 
 ### Maintenance
 - Prepare v0.4.0 ([4af4aca](https://codeberg.org/gbrennon/tmux-worktrees/commit/4af4aca44d2631ed13adf5f26954bb204841ddf1))
+- Update changelog ([7131fbe](https://codeberg.org/gbrennon/tmux-worktrees/commit/7131fbe2b940815fb069bdccf223e89dd8e6570b))
 
 
 ### Other
 - Merge pull request 'feat: download binaries from GitHub releases' (#36) from feat/github-release-assets into main
 
 Reviewed-on: ⁨https://codeberg.org/gbrennon/tmux-worktrees/pulls/36⁩ ([66cbca8](https://codeberg.org/gbrennon/tmux-worktrees/commit/66cbca87463123a613c21d03865eb8a17d9a6e72))
+- Verify release pull request checks ([94ae0c7](https://codeberg.org/gbrennon/tmux-worktrees/commit/94ae0c79c6db6c2f860559bed719c99b9d85f77b))
 
 ## [0.3.0] - 2026-10-21
 
