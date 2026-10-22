@@ -103,7 +103,12 @@ impl RatatuiSelector {
                     .split(area);
                 let input_text = format!("{prompt}{}", selector.query());
                 let input = Paragraph::new(input_text.clone())
-                    .block(Block::default().borders(Borders::ALL));
+                    .style(Style::default().fg(Color::White))
+                    .block(
+                        Block::default()
+                            .borders(Borders::ALL)
+                            .border_style(Style::default().fg(Color::Cyan)),
+                    );
                 let hint = Paragraph::new(header).style(Style::default().fg(Color::DarkGray));
                 f.render_widget(input, chunks[0]);
                 f.render_widget(hint, chunks[1]);
@@ -122,9 +127,14 @@ impl RatatuiSelector {
                 let mut ls = ListState::default();
                 ls.select(Some(selector.selected_index()));
                 let list = List::new(list_items)
-                    .block(Block::default().borders(Borders::ALL))
+                    .style(Style::default().fg(Color::White))
+                    .block(
+                        Block::default()
+                            .borders(Borders::ALL)
+                            .border_style(Style::default().fg(Color::Blue)),
+                    )
                     .highlight_symbol("> ")
-                    .highlight_style(Style::default().fg(Color::Yellow));
+                    .highlight_style(Style::default().fg(Color::Yellow).bg(Color::DarkGray));
                 f.render_stateful_widget(list, chunks[2], &mut ls);
             })?;
 
