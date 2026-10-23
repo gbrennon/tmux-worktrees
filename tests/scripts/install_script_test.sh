@@ -19,7 +19,12 @@ make_fixture() {
 
   cat > "$fixture/bin/tmux" <<'EOF'
 #!/usr/bin/env bash
+printf '%s\n' "$*" >> "${TMUX_LOG:?TMUX_LOG is required}"
 case "${1:-}" in
+  display-message)
+    printf 'test-session\n'
+    exit 0
+    ;;
   show-option|list-keys) exit 1 ;;
   *) exit 0 ;;
 esac
@@ -59,6 +64,7 @@ run_installer() {
   local fixture="$1"
   (cd "$fixture" && HOME="$fixture/home" PATH="$fixture/bin:$PATH" \
     CARGO_LOG="$fixture/cargo.log" ARCHIVE_SOURCE="$fixture/archive" \
+    TMUX_LOG="$fixture/tmux.log" SSH_AUTH_SOCK="$fixture/agent.sock" \
     bash "$fixture/worktree.tmux")
 }
 
@@ -70,6 +76,8 @@ chmod +x "$fixture/archive/tmux-worktrees"
 run_installer "$fixture"
 [[ -x "$fixture/home/.tmux/plugins/tmux-worktrees/tmux-worktrees" ]] || fail 'GitHub asset was not installed'
 [[ ! -s "$fixture/cargo.log" ]] || fail 'Cargo build ran despite successful asset download'
+grep -Fq -- "set-environment -t test-session SSH_AUTH_SOCK $fixture/agent.sock" "$fixture/tmux.log" \
+  || fail 'SSH agent socket was not persisted to the tmux session'
 
 fixture="$TEMP_DIR/fallback"
 make_fixture "$fixture"
@@ -79,5 +87,7 @@ chmod +x "$fixture/archive/tmux-worktrees"
 CURL_FAIL_DOWNLOAD=true run_installer "$fixture"
 [[ -x "$fixture/home/.tmux/plugins/tmux-worktrees/tmux-worktrees" ]] || fail 'source fallback did not install binary'
 grep -q 'build --release' "$fixture/cargo.log" || fail 'source fallback did not invoke cargo build'
+grep -Fq -- "set-environment -t test-session SSH_AUTH_SOCK $fixture/agent.sock" "$fixture/tmux.log" \
+  || fail 'SSH agent socket was not persisted during source fallback'
 
 printf 'installer script smoke tests: PASS\n'
