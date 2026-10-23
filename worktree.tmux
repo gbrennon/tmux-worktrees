@@ -117,6 +117,17 @@ build_binary_if_needed() {
     build_from_source
 }
 
+sync_ssh_agent() {
+    local socket="${SSH_AUTH_SOCK:-}"
+    [[ -n "$socket" ]] || return 0
+
+    local session
+    session="$(tmux display-message -p '#{session_name}' 2>/dev/null)" || return 0
+    [[ -n "$session" ]] || return 0
+
+    tmux set-environment -t "$session" SSH_AUTH_SOCK "$socket"
+}
+
 unbind_stale_keys() {
     for key in $(tmux list-keys -T prefix 2>/dev/null | grep -F "$BINARY_NAME" | awk '{print $4}'); do
         tmux unbind-key -T prefix "$key" 2>/dev/null || true
@@ -129,6 +140,7 @@ bind_keys() {
 }
 
 main() {
+    sync_ssh_agent
     ensure_plugin_dir
     build_binary_if_needed
     unbind_stale_keys
