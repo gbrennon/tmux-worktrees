@@ -3,15 +3,6 @@ use std::path::Path;
 pub struct ProjectLocator;
 
 impl ProjectLocator {
-    pub fn require_worktree(path: &Path) -> crate::core::error::Result<()> {
-        if path.join(".git").is_file() {
-            return Ok(());
-        }
-        Err(crate::core::error::Error::new(
-            "tmux-worktrees must be called from a Git worktree",
-        ))
-    }
-
     pub fn from_env() -> Option<String> {
         if let Ok(root) = std::env::var("TMUX_WORKTREES_ROOT") {
             let root = root.trim().to_string();
@@ -115,25 +106,6 @@ mod tests {
         let result = ProjectLocator::from_env();
         assert_eq!(result, None);
         unsafe { std::env::remove_var("TMUX_WORKTREES_ROOT") };
-    }
-
-    #[test]
-    fn project_locator_requires_a_linked_worktree() {
-        let dir = tempdir().unwrap();
-        let main = dir.path().join("main");
-        let worktree = dir.path().join("worktree");
-        fs::create_dir_all(&main).unwrap();
-        fs::create_dir_all(&worktree).unwrap();
-        fs::create_dir(main.join(".git")).unwrap();
-        fs::write(
-            worktree.join(".git"),
-            "gitdir: /some/where/.git/worktrees/worktree\n",
-        )
-        .unwrap();
-
-        assert!(ProjectLocator::require_worktree(&worktree).is_ok());
-        let error = ProjectLocator::require_worktree(&main).unwrap_err();
-        assert!(error.to_string().contains("Git worktree"));
     }
 
     #[test]
