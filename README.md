@@ -29,6 +29,14 @@ set -g @plugin 'gbrennon/tmux-worktrees'
 ```
 
 Also needs tmux >= 3.2, git >= 2.28, bash >= 4.0, `curl`, and `tar`.
+
+SSH authentication uses the agent available when the plugin is loaded. The
+plugin persists `SSH_AUTH_SOCK` into the invoking tmux session environment so
+Git fetches from worktree windows reuse your loaded SSH keys instead of
+prompting for a password. If you start or restart your agent later, reload the
+plugin from a shell with the agent exported (or source `worktree.tmux` again)
+to refresh the session socket path.
+
 TPM, tpack, and direct execution of `worktree.tmux` download the Linux x86_64
 pre-built binary from the GitHub release when one is available. Other
 platforms or missing assets fall back to building with the Rust toolchain.
