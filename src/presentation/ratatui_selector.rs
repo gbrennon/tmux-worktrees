@@ -223,6 +223,13 @@ mod tests {
         })
     }
 
+    fn key_from_event(event: crossterm::event::Event) -> Key {
+        match event {
+            crossterm::event::Event::Key(event) => Key::from(event),
+            _ => Key::Unknown,
+        }
+    }
+
     fn key_enter() -> crossterm::event::Event {
         key_event(crossterm::event::KeyCode::Enter)
     }
@@ -467,8 +474,8 @@ mod tests {
 
     #[test]
     fn plain_j_and_k_remain_query_input() {
-        assert_eq!(Key::from(key_char('j')), Key::Char('j'));
-        assert_eq!(Key::from(key_char('k')), Key::Char('k'));
+        assert_eq!(key_from_event(key_char('j')), Key::Char('j'));
+        assert_eq!(key_from_event(key_char('k')), Key::Char('k'));
     }
 
     #[test]
