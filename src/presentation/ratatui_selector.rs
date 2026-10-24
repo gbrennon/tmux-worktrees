@@ -19,6 +19,8 @@ impl From<crossterm::event::KeyEvent> for Key {
             } if m.contains(KeyModifiers::CONTROL) => match c {
                 'c' => Key::CtrlC,
                 'u' => Key::CtrlU,
+                'j' => Key::Down,
+                'k' => Key::Up,
                 _ => Key::Unknown,
             },
             crossterm::event::KeyEvent {
@@ -237,17 +239,29 @@ mod tests {
         key_event(crossterm::event::KeyCode::Down)
     }
 
+    fn key_ctrl_j() -> crossterm::event::Event {
+        key_ctrl_char('j')
+    }
+
+    fn key_ctrl_k() -> crossterm::event::Event {
+        key_ctrl_char('k')
+    }
+
     fn key_up() -> crossterm::event::Event {
         key_event(crossterm::event::KeyCode::Up)
     }
 
-    fn key_ctrl_u() -> crossterm::event::Event {
+    fn key_ctrl_char(c: char) -> crossterm::event::Event {
         crossterm::event::Event::Key(crossterm::event::KeyEvent {
-            code: crossterm::event::KeyCode::Char('u'),
+            code: crossterm::event::KeyCode::Char(c),
             modifiers: crossterm::event::KeyModifiers::CONTROL,
             kind: crossterm::event::KeyEventKind::Press,
             state: crossterm::event::KeyEventState::empty(),
         })
+    }
+
+    fn key_ctrl_u() -> crossterm::event::Event {
+        key_ctrl_char('u')
     }
 
     fn key_ctrl_c() -> crossterm::event::Event {
@@ -429,6 +443,32 @@ mod tests {
         let mut selector = Selector::new(vec!["a".into(), "b".into()], false);
         let result = run_with_fake(&mut selector, "> ", "hint");
         assert_eq!(result.unwrap(), SelectionResult::Selected(0));
+    }
+
+    #[test]
+    fn ctrl_j_moves_selection_down() {
+        reset_fake_state();
+        push_events(vec![key_ctrl_j(), key_enter()]);
+
+        let mut selector = Selector::new(vec!["first".into(), "second".into()], false);
+        let result = run_with_fake(&mut selector, "> ", "hint");
+        assert_eq!(result.unwrap(), SelectionResult::Selected(1));
+    }
+
+    #[test]
+    fn ctrl_k_moves_selection_up() {
+        reset_fake_state();
+        push_events(vec![key_down(), key_ctrl_k(), key_enter()]);
+
+        let mut selector = Selector::new(vec!["first".into(), "second".into()], false);
+        let result = run_with_fake(&mut selector, "> ", "hint");
+        assert_eq!(result.unwrap(), SelectionResult::Selected(0));
+    }
+
+    #[test]
+    fn plain_j_and_k_remain_query_input() {
+        assert_eq!(Key::from(key_char('j')), Key::Char('j'));
+        assert_eq!(Key::from(key_char('k')), Key::Char('k'));
     }
 
     #[test]
