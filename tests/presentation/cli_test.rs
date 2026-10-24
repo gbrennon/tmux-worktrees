@@ -148,7 +148,7 @@ fn spawn_in_popup_calls_display_popup_when_root_found() {
 }
 
 #[test]
-fn spawn_in_popup_rejects_a_main_repository() {
+fn spawn_in_popup_accepts_a_main_repository() {
     let temporary_repository = tempfile::tempdir().unwrap();
     std::fs::create_dir(temporary_repository.path().join(".git")).unwrap();
     unsafe {
@@ -158,15 +158,13 @@ fn spawn_in_popup_rejects_a_main_repository() {
     let tmux = FakeTmxPopupOk::new();
     let guard = tmux.clone();
     let cli = cli_default(tmux, StubGit);
-    let error = cli
-        .spawn_in_popup(&["tmux-worktrees".to_string(), "choose".to_string()])
-        .unwrap_err();
+    let result = cli.spawn_in_popup(&["tmux-worktrees".to_string(), "choose".to_string()]);
 
     unsafe {
         std::env::remove_var("TMUX_WORKTREES_ROOT");
     }
-    assert!(error.to_string().contains("Git worktree"));
-    assert!(!guard.display_called.get());
+    assert!(result.is_ok());
+    assert!(guard.display_called.get());
 }
 
 #[test]

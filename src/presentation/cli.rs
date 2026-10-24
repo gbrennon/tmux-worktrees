@@ -98,7 +98,6 @@ impl Cli {
                 return Ok(());
             }
         };
-        ProjectLocator::require_worktree(Path::new(&root))?;
         let exe = std::env::current_exe().unwrap_or_else(|_| {
             args.first()
                 .map(std::path::PathBuf::from)
