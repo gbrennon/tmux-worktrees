@@ -27,10 +27,11 @@ on after a 500 ms grace period.
 ## User-visible behavior
 
 1. A loading job starts and the animation is rendered as it is today.
-2. When terminal input is detected, the animation is cleared and remains paused
-   while input is pending.
-3. Once input has been idle for 500 ms, the animation resumes if the job is
-   still running.
+2. When terminal input is detected, the full loading screen is cleared and the
+   input prompt becomes the only visible content. The animation remains paused
+   while input is pending and must not redraw over the prompt.
+3. Once input has been submitted and has been idle for 500 ms, the animation
+   resumes if the job is still running.
 4. If the job completes while the animation is paused, it does not resume; the
    terminal is restored normally.
 
@@ -50,9 +51,10 @@ state transitions can be tested deterministically.
 
 The loading thread will track the toggled loading state and the last observed
 input activity. On the first pending-input observation it toggles the animation
-off, clears the terminal once, and stops drawing animation frames. After 500 ms
-with no pending input, it toggles the animation back on and redraws if the job
-has not completed.
+off, clears the full terminal once, and stops drawing animation frames so the
+interactive prompt has focus. After input has been submitted and no input has
+been pending for 500 ms, it toggles the animation back on and redraws if the job
+has not completed. No intermediate animation frame may be drawn while paused.
 
 The existing job thread, panic handling, minimum display timing, thread join,
 and terminal restoration remain intact.
@@ -68,9 +70,9 @@ and terminal restoration remain intact.
 
 ## Testing strategy (TDD)
 
-1. Add a failing test that verifies pending input toggles loading off and clears
-   the animation.
-2. Add a test that verifies 500 ms of input inactivity toggles loading back on
+1. Add a failing test that verifies pending input toggles loading off, clears the
+   full terminal, and prevents further animation frames while input is active.
+2. Add a test that verifies 500 ms after input submission toggles loading back on
    while the job remains active.
 3. Add a test that verifies completion while paused does not restart animation.
 4. Retain and extend tests for terminal restoration on successful, failed, and

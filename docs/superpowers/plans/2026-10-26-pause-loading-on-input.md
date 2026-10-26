@@ -111,7 +111,7 @@ Create a long-running job synchronized with a channel or atomic flag. Set fake i
 
 - [ ] **Step 2: Write the 500 ms resume test**
 
-Start with input pending, release it, keep the job running for more than 500 ms, and assert that draw calls occur again after the idle grace period.
+Start with input pending, assert that the full terminal is cleared and no animation frames are drawn while input remains pending, then mark input submitted/idle, keep the job running for more than 500 ms, and assert that draw calls occur again only after the idle grace period.
 
 - [ ] **Step 3: Write the completion-while-paused test**
 
@@ -147,11 +147,11 @@ Track `animation_enabled` and `last_input_seen: Option<Instant>` inside the load
 
 - [ ] **Step 2: Toggle animation off on pending input**
 
-Each loop iteration calls `input_pending`. When it returns true, record the current time. If animation is enabled, clear the terminal once and set animation disabled. Do not read any event.
+Each loop iteration calls `input_pending`. When it returns true, record the current time. If animation is enabled, clear the full terminal once and set animation disabled. Do not read any event, and do not draw any animation frame while disabled so the interactive prompt remains the only focused content.
 
 - [ ] **Step 3: Toggle animation on after idle input**
 
-When input is no longer pending and the last observed input is at least 500 ms old, set animation enabled and draw the next loading frame. If the job is done, do not resume.
+When input has been submitted, is no longer pending, and the last observed input is at least 500 ms old, set animation enabled and draw the next loading frame. If the job is done, do not resume.
 
 - [ ] **Step 4: Preserve existing timing and shutdown behavior**
 
