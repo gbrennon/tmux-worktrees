@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::thread;
 use std::time::Duration;
 
@@ -25,9 +25,7 @@ impl RatatuiLoading {
         let start = std::time::Instant::now();
 
         let mut terminal = backend.setup()?;
-        terminal
-            .clear()
-            .map_err(|e| Error::new(format!("Failed to clear terminal: {}", e)))?;
+        backend.clear(&mut terminal)?;
 
         let backend = Arc::new(backend);
         let thread_backend = Arc::clone(&backend);
@@ -83,7 +81,9 @@ mod tests {
         setup_fails: AtomicBool,
         draw_fails: AtomicBool,
         restore_called: AtomicBool,
-        draw_count: std::sync::atomic::AtomicUsize,
+        draw_count: AtomicUsize,
+        input_pending: AtomicBool,
+        clear_count: AtomicUsize,
     }
 
     #[derive(Clone)]
@@ -96,6 +96,14 @@ mod tests {
             Self {
                 state: Arc::new(FakeState::default()),
             }
+        }
+
+        fn set_input_pending(&self, pending: bool) {
+            self.state.input_pending.store(pending, Ordering::Relaxed);
+        }
+
+        fn clear_count(&self) -> usize {
+            self.state.clear_count.load(Ordering::Relaxed)
         }
     }
 
@@ -129,6 +137,17 @@ mod tests {
             unimplemented!("loading runner never reads events")
         }
 
+        fn input_pending(&self) -> Result<bool> {
+            Ok(self.state.input_pending.load(Ordering::Relaxed))
+        }
+
+        fn clear(&self, terminal: &mut Terminal<Self::Term>) -> Result<()> {
+            self.state.clear_count.fetch_add(1, Ordering::Relaxed);
+            terminal
+                .clear()
+                .map_err(|e| Error::new(format!("Failed to clear terminal: {e}")))
+        }
+
         fn restore(&self, _terminal: &mut Terminal<Self::Term>) -> Result<()> {
             self.state.restore_called.store(true, Ordering::Relaxed);
             Ok(())
@@ -142,9 +161,22 @@ mod tests {
     }
 
     #[test]
+    fn fake_backend_exposes_input_polling_and_clear() {
+        let fake = FakeTerminal::new();
+        assert!(!fake.input_pending().unwrap());
+        fake.set_input_pending(true);
+        assert!(fake.input_pending().unwrap());
+
+        let mut terminal = fake.setup().unwrap();
+        fake.clear(&mut terminal).unwrap();
+        assert_eq!(fake.clear_count(), 1);
+    }
+
+    #[test]
     fn runs_job_returns_result_and_restores() {
         let (result, fake) = run("loading", || Ok(()));
         assert!(result.is_ok());
+        assert_eq!(fake.clear_count(), 1);
         assert!(fake.state.restore_called.load(Ordering::Relaxed));
         assert!(
             fake.state.draw_count.load(Ordering::Relaxed) >= 1,
