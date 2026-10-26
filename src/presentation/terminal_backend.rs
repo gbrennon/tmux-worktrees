@@ -21,6 +21,16 @@ pub(crate) trait TerminalBackend {
 
     fn read_event(&self) -> Result<crossterm::event::Event>;
 
+    fn input_pending(&self) -> Result<bool> {
+        Ok(false)
+    }
+
+    fn clear(&self, terminal: &mut Terminal<Self::Term>) -> Result<()> {
+        terminal
+            .clear()
+            .map_err(|e| Error::new(format!("Failed to clear terminal: {e}")))
+    }
+
     fn restore(&self, terminal: &mut Terminal<Self::Term>) -> Result<()>;
 
     /// Minimum time the loading animation stays visible so users can see it
@@ -46,6 +56,11 @@ impl TerminalBackend for RealTerminal {
 
     fn read_event(&self) -> Result<crossterm::event::Event> {
         crossterm::event::read().map_err(|e| Error::new(format!("Failed to read key event: {}", e)))
+    }
+
+    fn input_pending(&self) -> Result<bool> {
+        crossterm::event::poll(Duration::ZERO)
+            .map_err(|e| Error::new(format!("Failed to poll terminal input: {e}")))
     }
 
     fn restore(&self, terminal: &mut Terminal<Self::Term>) -> Result<()> {
