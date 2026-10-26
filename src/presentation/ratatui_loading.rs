@@ -3,14 +3,13 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 use std::time::Duration;
 
-use ratatui::Terminal;
-
 use crate::core::error::{Error, Result};
 use crate::presentation::loading_port::LoadingRunner;
 use crate::presentation::terminal_backend::{RealTerminal, TerminalBackend};
 use crate::presentation::widgets::loading::LoadingIndicator;
 
 const FRAME_DELAY: Duration = Duration::from_millis(100);
+const INPUT_IDLE_GRACE: Duration = Duration::from_millis(500);
 
 pub struct RatatuiLoading;
 
@@ -32,17 +31,56 @@ impl RatatuiLoading {
         let done = Arc::new(AtomicBool::new(false));
         let thread_done = Arc::clone(&done);
 
-        let handle = thread::spawn(move || -> Result<Terminal<B::Term>> {
+        let handle = thread::spawn(move || {
             let mut indicator = LoadingIndicator::new(label);
+            let mut animation_enabled = true;
+            let mut last_input_seen = None;
+            let mut animation_result = Ok(());
+
             loop {
-                indicator.tick();
-                thread_backend.draw_frame(&mut terminal, |f| indicator.render(f, f.area()))?;
+                let pending = match thread_backend.input_pending() {
+                    Ok(pending) => pending,
+                    Err(error) => {
+                        animation_result = Err(error);
+                        break;
+                    }
+                };
+
+                if pending {
+                    last_input_seen = Some(std::time::Instant::now());
+                    if animation_enabled {
+                        if let Err(error) = thread_backend.clear(&mut terminal) {
+                            animation_result = Err(error);
+                            break;
+                        }
+                        animation_enabled = false;
+                    }
+                } else if !animation_enabled {
+                    let job_done = thread_done.load(Ordering::Relaxed);
+                    let input_idle =
+                        last_input_seen.is_some_and(|seen| seen.elapsed() >= INPUT_IDLE_GRACE);
+                    if !job_done && input_idle {
+                        animation_enabled = true;
+                    }
+                }
+
+                if animation_enabled {
+                    indicator.tick();
+                    if let Err(error) =
+                        thread_backend.draw_frame(&mut terminal, |f| indicator.render(f, f.area()))
+                    {
+                        animation_result = Err(error);
+                        break;
+                    }
+                }
+
                 if thread_done.load(Ordering::Relaxed) {
                     break;
                 }
                 thread::sleep(FRAME_DELAY);
             }
-            Ok(terminal)
+
+            (terminal, animation_result)
         });
 
         let job_result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(job))
@@ -54,13 +92,13 @@ impl RatatuiLoading {
         }
 
         done.store(true, Ordering::Relaxed);
-        let mut terminal = match handle.join() {
-            Ok(Ok(terminal)) => terminal,
-            Ok(Err(e)) => return Err(e),
+        let (mut terminal, animation_result) = match handle.join() {
+            Ok(result) => result,
             Err(_) => return Err(Error::new("Loading animation thread panicked")),
         };
 
         backend.restore(&mut terminal)?;
+        animation_result?;
         job_result
     }
 }
@@ -76,7 +114,7 @@ mod tests {
     use std::sync::atomic::AtomicUsize;
 
     use super::*;
-    use ratatui::{Frame, backend::TestBackend};
+    use ratatui::{Frame, Terminal, backend::TestBackend};
 
     #[derive(Default)]
     struct FakeState {
