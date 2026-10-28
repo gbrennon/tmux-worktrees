@@ -1,6 +1,61 @@
 # Changelog
 
 All notable changes to this project are documented here.
+## [0.5.0] - 2026-10-24
+
+
+### Added
+- Add selector popup colors ([29b50df](https://codeberg.org/gbrennon/tmux-worktrees/commit/29b50dfb43cc2f7e314c0f97b017626aae812556))
+- Support vim selector navigation ([8146002](https://codeberg.org/gbrennon/tmux-worktrees/commit/8146002576a558612e09818c66cc074bc07587bc))
+
+
+### Changed
+- Use worktree terminology ([e7af169](https://codeberg.org/gbrennon/tmux-worktrees/commit/e7af1695af8693854081f10bb89412020cbedba6))
+
+
+### Fixed
+- Position selector input cursor ([da42d0e](https://codeberg.org/gbrennon/tmux-worktrees/commit/da42d0ed47e6e2403f6e041024cf0523f477ca6f))
+- Require worktree context for popup ([17b42a9](https://codeberg.org/gbrennon/tmux-worktrees/commit/17b42a9768594dc1ccfd9e210a5ec08db39f1423))
+- Persist SSH agent for tmux ([68e68df](https://codeberg.org/gbrennon/tmux-worktrees/commit/68e68df74a3cf9749ff778f9d94b118d398c27a5))
+- Allow main repository popup ([b42b10a](https://codeberg.org/gbrennon/tmux-worktrees/commit/b42b10af55c557eb5f81a49f9724a69d27d3f590))
+
+
+### Maintenance
+- Prepare v0.5.0 ([28acda8](https://codeberg.org/gbrennon/tmux-worktrees/commit/28acda86cbccd5d4f5e330b17c1a04b977b70508))
+
+
+### Other
+- Merge branch 'main' of github.com:gbrennon/tmux-worktrees ([858af85](https://codeberg.org/gbrennon/tmux-worktrees/commit/858af851ef6a2e00fd83cfc6e254fb2a3cc61022))
+- Merge branch 'main' of github.com:gbrennon/tmux-worktrees ([470f426](https://codeberg.org/gbrennon/tmux-worktrees/commit/470f4269b8eff5843f99e97b92208d2bccf7d721))
+- Merge branch 'main' of github.com:gbrennon/tmux-worktrees ([0ca60cb](https://codeberg.org/gbrennon/tmux-worktrees/commit/0ca60cbc2ff87dec7c597028baae0a4b269a7b39))
+- Merge branch 'main' of github.com:gbrennon/tmux-worktrees ([a537e6a](https://codeberg.org/gbrennon/tmux-worktrees/commit/a537e6ac1180ac44ca83d81ca82d24c4de3d883c))
+- Merge pull request 'fix(ui): position selector input cursor' (#39) from fix/selector-cursor-marker into main
+
+Reviewed-on: ⁨https://codeberg.org/gbrennon/tmux-worktrees/pulls/39⁩ ([547b621](https://codeberg.org/gbrennon/tmux-worktrees/commit/547b621125d90cddbfd58f5afd356bb5b308e238))
+- Merge pull request 'refactor(ui): use worktree terminology' (#40) from fix/worktree-naming into main
+
+Reviewed-on: ⁨https://codeberg.org/gbrennon/tmux-worktrees/pulls/40⁩ ([8909b31](https://codeberg.org/gbrennon/tmux-worktrees/commit/8909b316d13e95098eaac40184f89891a39e8459))
+- Merge pull request 'feat(ui): add selector popup colors' (#41) from feat/ratatui-colors into main
+
+Reviewed-on: ⁨https://codeberg.org/gbrennon/tmux-worktrees/pulls/41⁩ ([d7ab784](https://codeberg.org/gbrennon/tmux-worktrees/commit/d7ab784154a453aae635070798ee33ff4836d387))
+- Merge pull request 'fix(ui): require worktree context for popup' (#42) from fix/popup-close-error into main
+
+Reviewed-on: ⁨https://codeberg.org/gbrennon/tmux-worktrees/pulls/42⁩ ([67e0cb0](https://codeberg.org/gbrennon/tmux-worktrees/commit/67e0cb0e3655bc0e3c1fd76023836d9ebded91f0))
+- Merge branch 'main' of github.com:gbrennon/tmux-worktrees ([c6af3f7](https://codeberg.org/gbrennon/tmux-worktrees/commit/c6af3f7d5727fbd47b259ab6fa23a45db10263d0))
+- Merge pull request 'fix(auth): persist SSH agent for tmux' (#43) from fix/persist-ssh-agent into main
+
+Reviewed-on: https://codeberg.org/gbrennon/tmux-worktrees/pulls/43 ([5858ee3](https://codeberg.org/gbrennon/tmux-worktrees/commit/5858ee33f364117960bf9fa053bca2d5c38c6df3))
+- Merge pull request 'fix(ui): allow main repository popup' (#44) from fix/allow-main-repository into main
+
+Reviewed-on: https://codeberg.org/gbrennon/tmux-worktrees/pulls/44 ([33e15af](https://codeberg.org/gbrennon/tmux-worktrees/commit/33e15afe2a33ed8b7fbe1a81a0e028ef3b3b3c26))
+- Merge pull request 'feat(ui): support ctrl-j and ctrl-k selector navigation' (#45) from feat/vim-selector-navigation into main
+
+Reviewed-on: https://codeberg.org/gbrennon/tmux-worktrees/pulls/45 ([e122845](https://codeberg.org/gbrennon/tmux-worktrees/commit/e122845fffb81886dcce70d94a820a584f5ab71f))
+
+
+### Tests
+- Fix selector key assertions ([4fd05fa](https://codeberg.org/gbrennon/tmux-worktrees/commit/4fd05faf44888376760999ffb15a024abbd1ce58))
+
 ## [0.4.0] - 2026-10-22
 
 
@@ -16,6 +71,7 @@ All notable changes to this project are documented here.
 ### Maintenance
 - Prepare v0.4.0 ([4af4aca](https://codeberg.org/gbrennon/tmux-worktrees/commit/4af4aca44d2631ed13adf5f26954bb204841ddf1))
 - Update changelog ([7131fbe](https://codeberg.org/gbrennon/tmux-worktrees/commit/7131fbe2b940815fb069bdccf223e89dd8e6570b))
+- Update changelog ([3d5fcca](https://codeberg.org/gbrennon/tmux-worktrees/commit/3d5fcca87da2974251b519ad91d521fa102b5ca6))
 
 
 ### Other
@@ -23,6 +79,12 @@ All notable changes to this project are documented here.
 
 Reviewed-on: ⁨https://codeberg.org/gbrennon/tmux-worktrees/pulls/36⁩ ([66cbca8](https://codeberg.org/gbrennon/tmux-worktrees/commit/66cbca87463123a613c21d03865eb8a17d9a6e72))
 - Verify release pull request checks ([94ae0c7](https://codeberg.org/gbrennon/tmux-worktrees/commit/94ae0c79c6db6c2f860559bed719c99b9d85f77b))
+- Merge pull request 'release: v0.4.0' (#37) from release/v0.4.0 into main
+
+Reviewed-on: ⁨https://codeberg.org/gbrennon/tmux-worktrees/pulls/37⁩ ([194a66a](https://codeberg.org/gbrennon/tmux-worktrees/commit/194a66afd5ceb6df0145a35de321ec2abae0fd13))
+- Merge pull request 'fix(release): ignore generated assets' (#38) from release/v0.4.0 into main
+
+Reviewed-on: ⁨https://codeberg.org/gbrennon/tmux-worktrees/pulls/38⁩ ([533e4a4](https://codeberg.org/gbrennon/tmux-worktrees/commit/533e4a4b5e31ab3e2d447489253117f044f50f0b))
 
 ## [0.3.0] - 2026-10-21
 
