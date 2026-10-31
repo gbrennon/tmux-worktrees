@@ -197,8 +197,11 @@ impl GitPort for FakeGitBranchFallbackCurrent {
 
 pub struct FakeGitBranchDelete;
 impl GitPort for FakeGitBranchDelete {
-    fn run_in(&self, _d: &Path, _a: &[&str]) -> Result<(i32, String, String)> {
-        unimplemented!()
+    fn run_in(&self, _d: &Path, args: &[&str]) -> Result<(i32, String, String)> {
+        match args {
+            ["branch", "-D", _] => Ok((0, String::new(), String::new())),
+            _ => unimplemented!(),
+        }
     }
     fn silent_in(&self, _d: &Path, _args: &[&str]) -> Result<()> {
         Ok(())
@@ -249,22 +252,56 @@ impl GitPort for FakeGitPorcelain {
 
 pub struct FakeGitForCleanup {
     pub porcelain: String,
-    pub rev_parse_output: String,
-    pub remove_status: i32,
-    pub remove_stderr: String,
+    pub rev_parse_outputs: Vec<String>,
+    pub rev_parse_index: RefCell<usize>,
+    pub remove_calls: std::rc::Rc<RefCell<Vec<String>>>,
+    pub deleted_branches: std::rc::Rc<RefCell<Vec<String>>>,
+    pub remove_outcomes: Vec<(i32, String)>,
+    pub remove_index: RefCell<usize>,
+    pub branch_delete_outcomes: Vec<(i32, String)>,
+    pub branch_delete_index: RefCell<usize>,
 }
+
 impl FakeGitForCleanup {
     pub fn new(porcelain: &str) -> Self {
         Self {
             porcelain: porcelain.to_string(),
-            rev_parse_output: "feat-a".into(),
-            remove_status: 0,
-            remove_stderr: String::new(),
+            rev_parse_outputs: vec!["feat-a".into()],
+            rev_parse_index: RefCell::new(0),
+            remove_calls: std::rc::Rc::new(RefCell::new(Vec::new())),
+            deleted_branches: std::rc::Rc::new(RefCell::new(Vec::new())),
+            remove_outcomes: vec![(0, String::new())],
+            remove_index: RefCell::new(0),
+            branch_delete_outcomes: vec![(0, String::new())],
+            branch_delete_index: RefCell::new(0),
         }
     }
+
+    pub fn with_branches(mut self, branches: &[&str]) -> Self {
+        self.rev_parse_outputs = branches.iter().map(|branch| (*branch).into()).collect();
+        self
+    }
+
     pub fn with_remove_failure(mut self) -> Self {
-        self.remove_status = 1;
-        self.remove_stderr = "worktree locked".into();
+        self.remove_outcomes = vec![(1, "worktree locked".into())];
+        self.remove_index = RefCell::new(0);
+        self
+    }
+
+    pub fn with_remove_outcomes(mut self, outcomes: &[(i32, &str)]) -> Self {
+        self.remove_outcomes = outcomes
+            .iter()
+            .map(|(status, stderr)| (*status, (*stderr).into()))
+            .collect();
+        self.remove_index = RefCell::new(0);
+        self
+    }
+    pub fn with_branch_delete_outcomes(mut self, outcomes: &[(i32, &str)]) -> Self {
+        self.branch_delete_outcomes = outcomes
+            .iter()
+            .map(|(status, stderr)| (*status, (*stderr).into()))
+            .collect();
+        self.branch_delete_index = RefCell::new(0);
         self
     }
 }
@@ -274,26 +311,63 @@ impl GitPort for FakeGitForCleanup {
             ["config", "--global", "init.defaultBranch"] => Ok((0, "main".into(), String::new())),
             ["config", "init.defaultBranch"] => Ok((0, "main".into(), String::new())),
             ["branch", "--show-current"] => Ok((0, "main".into(), String::new())),
+            ["branch", "-D", branch] => {
+                let mut index = self.branch_delete_index.borrow_mut();
+                let (status, stderr) = self
+                    .branch_delete_outcomes
+                    .get(*index)
+                    .or_else(|| self.branch_delete_outcomes.last())
+                    .cloned()
+                    .unwrap_or((0, String::new()));
+                *index += 1;
+                drop(index);
+                if status == 0 {
+                    self.deleted_branches
+                        .borrow_mut()
+                        .push((*branch).to_string());
+                }
+                Ok((status, String::new(), stderr))
+            }
             ["worktree", "list", "--porcelain"] => {
                 let porcelain = self.porcelain.replace("__ROOT__", &d.to_string_lossy());
                 Ok((0, porcelain, String::new()))
             }
             ["rev-parse", "--abbrev-ref", "HEAD"] => {
-                Ok((0, self.rev_parse_output.clone(), String::new()))
+                let mut index = self.rev_parse_index.borrow_mut();
+                let branch = self
+                    .rev_parse_outputs
+                    .get(*index)
+                    .or_else(|| self.rev_parse_outputs.last())
+                    .cloned()
+                    .unwrap_or_default();
+                *index += 1;
+                Ok((0, branch, String::new()))
             }
             ["merge-base", "--is-ancestor", "HEAD", _] => Ok((0, String::new(), String::new())),
             ["fetch", "origin", _, "--no-tags"] => Ok((0, String::new(), String::new())),
-            ["worktree", "remove", "--force", _] => Ok((
-                self.remove_status,
-                String::new(),
-                self.remove_stderr.clone(),
-            )),
+            ["worktree", "remove", "--force", path] => {
+                self.remove_calls.borrow_mut().push((*path).to_string());
+                let mut index = self.remove_index.borrow_mut();
+                let (status, stderr) = self
+                    .remove_outcomes
+                    .get(*index)
+                    .or_else(|| self.remove_outcomes.last())
+                    .cloned()
+                    .unwrap_or((0, String::new()));
+                *index += 1;
+                Ok((status, String::new(), stderr))
+            }
             _ => unimplemented!("unexpected git run_in: {:?}", args),
         }
     }
     fn silent_in(&self, _d: &Path, args: &[&str]) -> Result<()> {
         match args {
-            ["branch", "-D", _] => Ok(()),
+            ["branch", "-D", branch] => {
+                self.deleted_branches
+                    .borrow_mut()
+                    .push((*branch).to_string());
+                Ok(())
+            }
             _ => unimplemented!("unexpected git silent_in: {:?}", args),
         }
     }
@@ -375,6 +449,7 @@ impl FakeGitLifecycle {
 impl GitPort for FakeGitLifecycle {
     fn run_in(&self, _d: &Path, args: &[&str]) -> Result<(i32, String, String)> {
         match args {
+            ["branch", "-D", _] => Ok((0, String::new(), String::new())),
             ["show-ref", "--verify", "--quiet", _] => Ok((1, String::new(), String::new())),
             ["worktree", "add", _, "-b", branch, _] => {
                 *self.branch_name.borrow_mut() = branch.to_string();
