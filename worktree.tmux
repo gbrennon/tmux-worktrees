@@ -26,13 +26,6 @@ ensure_plugin_dir() {
 }
 
 resolve_installed_binary() {
-    local installed_binary
-    installed_binary="$(command -v "$BINARY_NAME" 2>/dev/null || true)"
-    if [[ -n "$installed_binary" && -x "$installed_binary" ]]; then
-        BINARY_PATH="$installed_binary"
-        return 0
-    fi
-
     local default_path
     for default_path in \
         "$HOME/.cargo/bin/$BINARY_NAME" \
@@ -44,6 +37,13 @@ resolve_installed_binary() {
             return 0
         fi
     done
+
+    local installed_binary
+    installed_binary="$(command -v "$BINARY_NAME" 2>/dev/null || true)"
+    if [[ -n "$installed_binary" && -x "$installed_binary" ]]; then
+        BINARY_PATH="$installed_binary"
+        return 0
+    fi
     return 1
 }
 
