@@ -9,7 +9,7 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_NAME="tmux-worktrees"
 PLUGIN_DIR="$HOME/.tmux/plugins/$PLUGIN_NAME"
 BINARY_NAME="tmux-worktrees"
-BINARY_PATH="$PLUGIN_DIR/$BINARY_NAME"
+BINARY_PATH=""
 REPO_DIR="$CURRENT_DIR"
 CARGO_MANIFEST="$REPO_DIR/Cargo.toml"
 
@@ -23,6 +23,28 @@ CLEANUP_KEY="$(tmux show-option -gv @worktree-cleanup-key 2>/dev/null || echo "D
 
 ensure_plugin_dir() {
     mkdir -p "$PLUGIN_DIR"
+}
+
+resolve_installed_binary() {
+    local installed_binary
+    installed_binary="$(command -v "$BINARY_NAME" 2>/dev/null || true)"
+    if [[ -n "$installed_binary" && -x "$installed_binary" ]]; then
+        BINARY_PATH="$installed_binary"
+        return 0
+    fi
+
+    local default_path
+    for default_path in \
+        "$HOME/.cargo/bin/$BINARY_NAME" \
+        "$HOME/.local/bin/$BINARY_NAME" \
+        "/usr/local/bin/$BINARY_NAME" \
+        "/usr/bin/$BINARY_NAME"; do
+        if [[ -x "$default_path" ]]; then
+            BINARY_PATH="$default_path"
+            return 0
+        fi
+    done
+    return 1
 }
 
 platform_triple() {
@@ -103,13 +125,17 @@ build_from_source() {
 }
 
 build_binary_if_needed() {
+    if resolve_installed_binary; then
+        return 0
+    fi
+
+    BINARY_PATH="$PLUGIN_DIR/$BINARY_NAME"
     if [[ -x "$BINARY_PATH" ]] && [[ "$REPO_DIR/src/main.rs" -ot "$BINARY_PATH" ]] && [[ "$CARGO_MANIFEST" -ot "$BINARY_PATH" ]]; then
         return 0
     fi
 
     local version
     version="$(get_latest_release_version 2>/dev/null || true)"
-
     if [[ -n "$version" ]] && download_prebuilt_binary "$version"; then
         return 0
     fi

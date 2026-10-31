@@ -156,6 +156,7 @@ impl Cli {
                 self.run_create(display_name)
             }
             SelectionResult::Custom(branch) => self.run_create(&branch),
+            SelectionResult::SelectedMany(_) => Ok(()),
             SelectionResult::Cancelled => Ok(()),
         }
     }
@@ -251,31 +252,65 @@ impl Cli {
             return Ok(());
         }
         let items_clone = items.clone();
-        let mut selector = Selector::new(items, false);
+        let mut selector = Selector::new_multi(items);
         let filtered = selector.filter("");
         let picked = self.selector.run_selector(
             &mut selector,
             &filtered,
             "Remove worktree> ",
-            "Enter to remove selected worktree",
+            "Select worktrees to remove",
         )?;
-        let idx = match picked {
-            SelectionResult::Selected(i) => i,
+        let selected_indices = match picked {
+            SelectionResult::SelectedMany(indices) => indices,
             _ => return Ok(()),
         };
-        let ws_dir = &paths[idx];
-        let branch = WorktreeResolver
-            .extract_branch_from_display(&items_clone[idx])
-            .unwrap_or_default();
-        if let Err(e) = self.remove_worktree(repo_root_path, ws_dir, &branch) {
-            self.tmux
-                .show_error(&format!("Worktree removal failed:\n\n{e:#}"))?;
+        if selected_indices.is_empty() {
+            self.tmux.show_error("No worktrees were selected")?;
             return Ok(());
         }
-        self.delete_branch(repo_root_path, &branch);
-        let _ = self
-            .tmux
-            .run(&["display-message", &format!("Removed worktree: {branch}")]);
+
+        let selected: Vec<_> = selected_indices
+            .into_iter()
+            .map(|idx| {
+                let branch = WorktreeResolver
+                    .extract_branch_from_display(&items_clone[idx])
+                    .unwrap_or_default();
+                (paths[idx].clone(), branch)
+            })
+            .collect();
+        let branch_names = selected
+            .iter()
+            .map(|(_, branch)| branch.as_str())
+            .collect::<Vec<_>>()
+            .join(", ");
+        let confirmation_header = format!("Remove {} worktree(s): {branch_names}", selected.len());
+        let mut confirmation = Selector::new(vec!["Yes".to_string(), "No".to_string()], false);
+        let confirmation_filtered = confirmation.filter("");
+        let confirmed = self.selector.run_selector(
+            &mut confirmation,
+            &confirmation_filtered,
+            "Confirm removal> ",
+            &confirmation_header,
+        )?;
+        if !matches!(confirmed, SelectionResult::Selected(0)) {
+            return Ok(());
+        }
+
+        for (ws_dir, branch) in selected {
+            if let Err(e) = self.remove_worktree(repo_root_path, &ws_dir, &branch) {
+                self.tmux
+                    .show_error(&format!("Worktree removal failed:\n\n{e:#}"))?;
+                return Ok(());
+            }
+            if let Err(e) = self.delete_branch(repo_root_path, &branch) {
+                self.tmux
+                    .show_error(&format!("Branch deletion failed:\n\n{e:#}"))?;
+                return Ok(());
+            }
+            let _ = self
+                .tmux
+                .run(&["display-message", &format!("Removed worktree: {branch}")]);
+        }
         Ok(())
     }
 
@@ -445,7 +480,15 @@ impl Cli {
         Ok(out)
     }
 
-    pub fn delete_branch(&self, repo_root: &Path, branch: &str) {
-        let _ = self.git.silent_in(repo_root, &["branch", "-D", branch]);
+    pub fn delete_branch(&self, repo_root: &Path, branch: &str) -> Result<()> {
+        let (status, stdout, stderr) = self.git.run_in(repo_root, &["branch", "-D", branch])?;
+        if status != 0 {
+            return Err(crate::core::error::Error::new(if stdout.is_empty() {
+                stderr
+            } else {
+                stdout
+            }));
+        }
+        Ok(())
     }
 }
