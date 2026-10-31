@@ -21,22 +21,25 @@ impl SelectorRunner for StubSelector {
 
 pub struct FakeSelector {
     pub results: RefCell<Vec<SelectionResult>>,
+    pub calls: std::rc::Rc<RefCell<Vec<Vec<String>>>>,
 }
 impl FakeSelector {
     pub fn new(results: Vec<SelectionResult>) -> Self {
         Self {
             results: RefCell::new(results),
+            calls: std::rc::Rc::new(RefCell::new(Vec::new())),
         }
     }
 }
 impl SelectorRunner for FakeSelector {
     fn run_selector(
         &self,
-        _selector: &mut Selector,
+        selector: &mut Selector,
         _filtered: &[usize],
         _prompt: &str,
         _header: &str,
     ) -> Result<SelectionResult> {
+        self.calls.borrow_mut().push(selector.items().to_vec());
         let mut results = self.results.borrow_mut();
         if !results.is_empty() {
             Ok(results.remove(0))
