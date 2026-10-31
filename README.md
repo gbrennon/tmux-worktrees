@@ -38,9 +38,10 @@ prompting for a password. If you start or restart your agent later, reload the
 plugin from a shell with the agent exported (or source `worktree.tmux` again)
 to refresh the session socket path.
 
-TPM, tpack, and direct execution of `worktree.tmux` download the Linux x86_64
-pre-built binary from the GitHub release when one is available. Other
-platforms or missing assets fall back to building with the Rust toolchain.
+If `tmux-worktrees` is already installed in `PATH` (for example with Cargo or
+from a release package), TPM, tpack, and direct execution use that CLI
+directly. If it is not available in `PATH`, they download the Linux x86_64
+pre-built binary when one is available, then fall back to building with Cargo.
 
 ---
 
