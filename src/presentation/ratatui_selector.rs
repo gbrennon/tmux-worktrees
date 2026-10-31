@@ -1,12 +1,11 @@
+use super::terminal_backend::{RealTerminal, TerminalBackend};
 use fuzzy_matcher::{FuzzyMatcher, clangd::ClangdMatcher};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Position},
-    style::{Color, Style},
+    style::{Modifier, Style},
     text::Text,
     widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
 };
-
-use super::terminal_backend::{RealTerminal, TerminalBackend};
 
 impl From<crossterm::event::KeyEvent> for Key {
     fn from(event: crossterm::event::KeyEvent) -> Self {
@@ -103,16 +102,8 @@ impl RatatuiSelector {
                     .split(area);
                 let input_text = format!("{prompt}{}", selector.query());
                 let input = Paragraph::new(input_text.clone())
-                    .style(Style::default().fg(Color::White))
-                    .block(
-                        Block::default()
-                            .borders(Borders::ALL)
-                            .border_style(Style::default().fg(Color::Cyan)),
-                    );
-                let hint = Paragraph::new(header).style(Style::default().fg(Color::DarkGray));
-                f.render_widget(input, chunks[0]);
-                f.render_widget(hint, chunks[1]);
-
+                    .block(Block::default().borders(Borders::ALL));
+                let hint = Paragraph::new(header);
                 let cursor_x = chunks[0]
                     .x
                     .saturating_add(1)
@@ -127,14 +118,11 @@ impl RatatuiSelector {
                 let mut ls = ListState::default();
                 ls.select(Some(selector.selected_index()));
                 let list = List::new(list_items)
-                    .style(Style::default().fg(Color::White))
-                    .block(
-                        Block::default()
-                            .borders(Borders::ALL)
-                            .border_style(Style::default().fg(Color::Blue)),
-                    )
+                    .block(Block::default().borders(Borders::ALL))
                     .highlight_symbol("> ")
-                    .highlight_style(Style::default().fg(Color::Yellow).bg(Color::DarkGray));
+                    .highlight_style(Style::default().add_modifier(Modifier::REVERSED));
+                f.render_widget(input, chunks[0]);
+                f.render_widget(hint, chunks[1]);
                 f.render_stateful_widget(list, chunks[2], &mut ls);
             })?;
 
