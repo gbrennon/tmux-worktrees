@@ -331,7 +331,7 @@ fn resolve_default_branch_falls_back_to_current() {
 #[test]
 fn delete_branch_does_not_panic() {
     let cli = cli_default(StubTmx, FakeGitBranchDelete);
-    cli.delete_branch(Path::new("/tmp/repo"), "feat/x");
+    cli.delete_branch(Path::new("/tmp/repo"), "feat/x").unwrap();
 }
 
 #[test]
@@ -511,15 +511,19 @@ fn run_cleanup_removes_worktree_and_deletes_branch() {
     let tmux = FakeTmxTest::new(REPO);
     let kill_called = tmux.kill_called.clone();
     let display_msgs = tmux.display_msgs.clone();
-    let selector = FakeSelector::new(vec![SelectionResult::Selected(0)]);
-    let cli = cli_with(
-        tmux,
-        FakeGitForCleanup::new("worktree __ROOT__\nworktree __ROOT__/.worktrees/feat-a\n"),
-        selector,
-    );
+    let git = FakeGitForCleanup::new("worktree __ROOT__\nworktree __ROOT__/.worktrees/feat-a\n");
+    let remove_calls = git.remove_calls.clone();
+    let deleted_branches = git.deleted_branches.clone();
+    let selector = FakeSelector::new(vec![
+        SelectionResult::SelectedMany(vec![0]),
+        SelectionResult::Selected(0),
+    ]);
+    let cli = cli_with(tmux, git, selector);
     let result = cli.run_cleanup();
     assert!(result.is_ok(), "expected Ok, got {:?}", result);
     assert!(kill_called.get(), "kill_window should have been called");
+    assert_eq!(remove_calls.borrow().len(), 1);
+    assert_eq!(deleted_branches.borrow().as_slice(), ["feat-a"]);
     let msgs: Vec<_> = display_msgs.borrow().iter().cloned().collect();
     let found = msgs.iter().any(|m| m.contains("Removed worktree: feat-a"));
     assert!(
@@ -534,13 +538,15 @@ fn run_cleanup_shows_error_on_removal_failure() {
     let tmux = FakeTmxTest::new(REPO);
     let show_error_called = tmux.show_error_called.clone();
     let show_error_msg = tmux.show_error_msg.clone();
-    let selector = FakeSelector::new(vec![SelectionResult::Selected(0)]);
-    let cli = cli_with(
-        tmux,
-        FakeGitForCleanup::new("worktree __ROOT__\nworktree __ROOT__/.worktrees/feat-a\n")
-            .with_remove_failure(),
-        selector,
-    );
+    let selector = FakeSelector::new(vec![
+        SelectionResult::SelectedMany(vec![0]),
+        SelectionResult::Selected(0),
+    ]);
+    let git = FakeGitForCleanup::new("worktree __ROOT__\nworktree __ROOT__/.worktrees/feat-a\n")
+        .with_remove_failure();
+    let remove_calls = git.remove_calls.clone();
+    let deleted_branches = git.deleted_branches.clone();
+    let cli = cli_with(tmux, git, selector);
     let result = cli.run_cleanup();
     assert!(
         result.is_ok(),
@@ -550,6 +556,8 @@ fn run_cleanup_shows_error_on_removal_failure() {
         show_error_called.get(),
         "show_error should have been called"
     );
+    assert_eq!(remove_calls.borrow().len(), 1);
+    assert!(deleted_branches.borrow().is_empty());
     let msg = show_error_msg.borrow();
     assert!(
         msg.contains("Worktree removal failed"),
@@ -558,6 +566,182 @@ fn run_cleanup_shows_error_on_removal_failure() {
     );
 }
 
+#[test]
+fn run_cleanup_empty_selection_shows_error_without_confirmation() {
+    let tmux = FakeTmxTest::new(REPO);
+    let show_error_called = tmux.show_error_called.clone();
+    let show_error_msg = tmux.show_error_msg.clone();
+    let git = FakeGitForCleanup::new("worktree __ROOT__\nworktree __ROOT__/.worktrees/feat-a\n");
+    let remove_calls = git.remove_calls.clone();
+    let selector = FakeSelector::new(vec![
+        SelectionResult::SelectedMany(Vec::new()),
+        SelectionResult::Selected(0),
+    ]);
+    let cli = cli_with(tmux, git, selector);
+
+    let result = cli.run_cleanup();
+
+    assert!(result.is_ok(), "expected Ok, got {:?}", result);
+    assert!(show_error_called.get());
+    assert!(
+        show_error_msg
+            .borrow()
+            .contains("No worktrees were selected")
+    );
+    assert!(remove_calls.borrow().is_empty());
+}
+#[test]
+fn run_cleanup_removes_selected_worktrees_in_display_order() {
+    let tmux = FakeTmxTest::new(REPO);
+    let display_msgs = tmux.display_msgs.clone();
+    let kill_windows = tmux.kill_windows.clone();
+    let porcelain = "worktree __ROOT__\n\
+        worktree __ROOT__/.worktrees/feat-a\n\
+        worktree __ROOT__/.worktrees/feat-b\n\
+        worktree __ROOT__/.worktrees/feat-c\n";
+    let git = FakeGitForCleanup::new(porcelain).with_branches(&["feat-a", "feat-b", "feat-c"]);
+    let remove_calls = git.remove_calls.clone();
+    let deleted_branches = git.deleted_branches.clone();
+    let selector = FakeSelector::new(vec![
+        SelectionResult::SelectedMany(vec![0, 2]),
+        SelectionResult::Selected(0),
+    ]);
+    let cli = cli_with(tmux, git, selector);
+
+    let result = cli.run_cleanup();
+
+    assert!(result.is_ok(), "expected Ok, got {:?}", result);
+    assert_eq!(kill_windows.borrow().as_slice(), ["feat-a", "feat-c"]);
+    let calls = remove_calls.borrow();
+    assert_eq!(calls.len(), 2);
+    assert!(calls[0].ends_with("feat-a"));
+    assert!(calls[1].ends_with("feat-c"));
+    assert_eq!(deleted_branches.borrow().as_slice(), ["feat-a", "feat-c"]);
+    let messages = display_msgs.borrow();
+    assert!(
+        messages
+            .iter()
+            .any(|msg| msg.contains("Removed worktree: feat-a"))
+    );
+    assert!(
+        messages
+            .iter()
+            .any(|msg| msg.contains("Removed worktree: feat-c"))
+    );
+    assert!(
+        !messages
+            .iter()
+            .any(|msg| msg.contains("Removed worktree: feat-b"))
+    );
+}
+
+#[test]
+fn run_cleanup_stops_after_middle_removal_failure() {
+    let tmux = FakeTmxTest::new(REPO);
+    let show_error_msg = tmux.show_error_msg.clone();
+    let display_msgs = tmux.display_msgs.clone();
+    let porcelain = "worktree __ROOT__\n\
+        worktree __ROOT__/.worktrees/feat-a\n\
+        worktree __ROOT__/.worktrees/feat-b\n\
+        worktree __ROOT__/.worktrees/feat-c\n";
+    let git = FakeGitForCleanup::new(porcelain)
+        .with_branches(&["feat-a", "feat-b", "feat-c"])
+        .with_remove_outcomes(&[(0, ""), (1, "second worktree locked"), (0, "")]);
+    let remove_calls = git.remove_calls.clone();
+    let deleted_branches = git.deleted_branches.clone();
+    let selector = FakeSelector::new(vec![
+        SelectionResult::SelectedMany(vec![0, 1, 2]),
+        SelectionResult::Selected(0),
+    ]);
+    let cli = cli_with(tmux, git, selector);
+
+    let result = cli.run_cleanup();
+
+    assert!(result.is_ok(), "expected Ok, got {:?}", result);
+    assert_eq!(remove_calls.borrow().len(), 2);
+    assert!(remove_calls.borrow()[0].ends_with("feat-a"));
+    assert!(remove_calls.borrow()[1].ends_with("feat-b"));
+    assert_eq!(deleted_branches.borrow().as_slice(), ["feat-a"]);
+    let messages = display_msgs.borrow();
+    assert!(
+        messages
+            .iter()
+            .any(|message| message.contains("Removed worktree: feat-a"))
+    );
+    assert!(!messages.iter().any(|message| message.contains("feat-b")));
+    assert!(!messages.iter().any(|message| message.contains("feat-c")));
+    assert!(show_error_msg.borrow().contains("Worktree removal failed"));
+}
+
+#[test]
+fn run_cleanup_stops_when_branch_deletion_fails() {
+    let tmux = FakeTmxTest::new(REPO);
+    let show_error_msg = tmux.show_error_msg.clone();
+    let display_msgs = tmux.display_msgs.clone();
+    let porcelain = "worktree __ROOT__\n\
+        worktree __ROOT__/.worktrees/feat-a\n\
+        worktree __ROOT__/.worktrees/feat-b\n\
+        worktree __ROOT__/.worktrees/feat-c\n";
+    let git = FakeGitForCleanup::new(porcelain)
+        .with_branches(&["feat-a", "feat-b", "feat-c"])
+        .with_branch_delete_outcomes(&[(1, "branch locked"), (0, ""), (0, "")]);
+    let remove_calls = git.remove_calls.clone();
+    let deleted_branches = git.deleted_branches.clone();
+    let selector = FakeSelector::new(vec![
+        SelectionResult::SelectedMany(vec![0, 1, 2]),
+        SelectionResult::Selected(0),
+    ]);
+    let cli = cli_with(tmux, git, selector);
+
+    let result = cli.run_cleanup();
+
+    assert!(result.is_ok(), "expected Ok, got {:?}", result);
+    assert_eq!(remove_calls.borrow().len(), 1);
+    assert!(deleted_branches.borrow().is_empty());
+    assert!(display_msgs.borrow().is_empty());
+    assert!(show_error_msg.borrow().contains("Branch deletion failed"));
+    assert!(show_error_msg.borrow().contains("branch locked"));
+}
+#[test]
+fn run_cleanup_confirmation_escape_does_not_remove_worktrees() {
+    let tmux = FakeTmxTest::new(REPO);
+    let git = FakeGitForCleanup::new("worktree __ROOT__\nworktree __ROOT__/.worktrees/feat-a\n");
+    let remove_calls = git.remove_calls.clone();
+    let deleted_branches = git.deleted_branches.clone();
+    let selector = FakeSelector::new(vec![
+        SelectionResult::SelectedMany(vec![0]),
+        SelectionResult::Cancelled,
+    ]);
+    let cli = cli_with(tmux, git, selector);
+
+    let result = cli.run_cleanup();
+
+    assert!(result.is_ok(), "expected Ok, got {:?}", result);
+    assert!(remove_calls.borrow().is_empty());
+    assert!(deleted_branches.borrow().is_empty());
+}
+#[test]
+fn run_cleanup_confirmation_cancel_does_not_remove_worktrees() {
+    let tmux = FakeTmxTest::new(REPO);
+    let git = FakeGitForCleanup::new("worktree __ROOT__\nworktree __ROOT__/.worktrees/feat-a\n");
+    let remove_calls = git.remove_calls.clone();
+    let deleted_branches = git.deleted_branches.clone();
+    let selector = FakeSelector::new(vec![
+        SelectionResult::SelectedMany(vec![0]),
+        SelectionResult::Selected(1),
+    ]);
+    let selector_calls = selector.calls.clone();
+    let cli = cli_with(tmux, git, selector);
+
+    let result = cli.run_cleanup();
+
+    assert!(result.is_ok(), "expected Ok, got {:?}", result);
+    let calls = selector_calls.borrow();
+    assert_eq!(calls.len(), 2);
+    assert_eq!(calls[1], vec!["Yes".to_string(), "No".to_string()]);
+    assert!(remove_calls.borrow().is_empty());
+    assert!(deleted_branches.borrow().is_empty());
+}
 #[test]
 fn run_cleanup_empty_worktrees_shows_message() {
     let tmux = FakeTmxTest::new(REPO);
