@@ -62,11 +62,39 @@ EOF
 
 run_installer() {
   local fixture="$1"
-  (cd "$fixture" && HOME="$fixture/home" PATH="$fixture/bin:$PATH" \
+  (cd "$fixture" && HOME="$fixture/home" PATH="$fixture/bin:/usr/bin:/bin" \
     CARGO_LOG="$fixture/cargo.log" ARCHIVE_SOURCE="$fixture/archive" \
     TMUX_LOG="$fixture/tmux.log" SSH_AUTH_SOCK="$fixture/agent.sock" \
     bash "$fixture/worktree.tmux")
 }
+
+fixture="$TEMP_DIR/installed"
+make_fixture "$fixture"
+mkdir -p "$fixture/archive" "$fixture/home"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$fixture/bin/tmux-worktrees"
+chmod +x "$fixture/bin/tmux-worktrees"
+run_installer "$fixture"
+[[ ! -s "$fixture/cargo.log" ]] || fail 'Cargo build ran despite installed CLI'
+[[ ! -e "$fixture/home/.tmux/plugins/tmux-worktrees/tmux-worktrees" ]] \
+  || fail 'Plugin copied a second binary despite installed CLI'
+grep -Fq -- "bind-key -T prefix W run-shell -b $fixture/bin/tmux-worktrees choose" "$fixture/tmux.log" \
+  || fail 'Choose binding did not use installed CLI'
+grep -Fq -- "bind-key -T prefix D run-shell -b $fixture/bin/tmux-worktrees cleanup" "$fixture/tmux.log" \
+  || fail 'Cleanup binding did not use installed CLI'
+
+fixture="$TEMP_DIR/default-path"
+make_fixture "$fixture"
+mkdir -p "$fixture/archive" "$fixture/home/.cargo/bin"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$fixture/home/.cargo/bin/tmux-worktrees"
+chmod +x "$fixture/home/.cargo/bin/tmux-worktrees"
+run_installer "$fixture"
+[[ ! -s "$fixture/cargo.log" ]] || fail 'Cargo build ran despite default-path CLI'
+[[ ! -e "$fixture/home/.tmux/plugins/tmux-worktrees/tmux-worktrees" ]] \
+  || fail 'Plugin copied a second binary despite default-path CLI'
+grep -Fq -- "bind-key -T prefix W run-shell -b $fixture/home/.cargo/bin/tmux-worktrees choose" "$fixture/tmux.log" \
+  || fail 'Choose binding did not use default-path CLI'
+grep -Fq -- "bind-key -T prefix D run-shell -b $fixture/home/.cargo/bin/tmux-worktrees cleanup" "$fixture/tmux.log" \
+  || fail 'Cleanup binding did not use default-path CLI'
 
 fixture="$TEMP_DIR/download"
 make_fixture "$fixture"
