@@ -40,8 +40,9 @@ to refresh the session socket path.
 
 If `tmux-worktrees` is already installed in `PATH` (for example with Cargo or
 from a release package), TPM, tpack, and direct execution use that CLI
-directly. If it is not available in `PATH`, they download the Linux x86_64
-pre-built binary when one is available, then fall back to building with Cargo.
+directly. If tmux's `PATH` does not include it, the plugin also checks
+`~/.cargo/bin`, `~/.local/bin`, `/usr/local/bin`, and `/usr/bin` before falling
+back to the Linux x86_64 release binary or a Cargo source build.
 
 ---
 
