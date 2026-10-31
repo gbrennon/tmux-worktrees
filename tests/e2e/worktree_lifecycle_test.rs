@@ -301,7 +301,7 @@ fn delete_branch_removes_it() {
         .unwrap();
     cli.remove_worktree(repo_root, &target, branch).unwrap();
 
-    cli.delete_branch(repo_root, branch);
+    cli.delete_branch(repo_root, branch).unwrap();
 
     let branch_target = guard.work_dir().join("feat-to-delete-v2");
     cli.create_worktree(repo_root, &branch_target, branch, "main")
@@ -312,5 +312,5 @@ fn delete_branch_removes_it() {
 
     cli.remove_worktree(repo_root, &branch_target, branch)
         .unwrap();
-    cli.delete_branch(repo_root, branch);
+    cli.delete_branch(repo_root, branch).unwrap();
 }

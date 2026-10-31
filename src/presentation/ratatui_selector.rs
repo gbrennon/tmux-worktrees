@@ -1,7 +1,7 @@
 use fuzzy_matcher::{FuzzyMatcher, clangd::ClangdMatcher};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Position},
-    style::{Color, Style},
+    style::{Color, Modifier, Style},
     text::Text,
     widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
 };
@@ -23,6 +23,11 @@ impl From<crossterm::event::KeyEvent> for Key {
                 'k' => Key::Up,
                 _ => Key::Unknown,
             },
+            crossterm::event::KeyEvent {
+                code: KeyCode::Char(' '),
+                modifiers: KeyModifiers::NONE,
+                ..
+            } => Key::Space,
             crossterm::event::KeyEvent {
                 code: KeyCode::Char(c),
                 ..
@@ -105,13 +110,18 @@ impl RatatuiSelector {
                     .split(area);
                 let input_text = format!("{prompt}{}", selector.query());
                 let input = Paragraph::new(input_text.clone())
-                    .style(Style::default().fg(Color::White))
+                    .style(Style::default().fg(Color::Reset))
                     .block(
                         Block::default()
                             .borders(Borders::ALL)
-                            .border_style(Style::default().fg(Color::Cyan)),
+                            .border_style(Style::default().fg(Color::Reset)),
                     );
-                let hint = Paragraph::new(header).style(Style::default().fg(Color::DarkGray));
+                let hint_text = if selector.is_multi_select() {
+                    format!("{header} Space to toggle, Enter to continue, Esc to cancel")
+                } else {
+                    header.to_string()
+                };
+                let hint = Paragraph::new(hint_text).style(Style::default().fg(Color::Reset));
                 f.render_widget(input, chunks[0]);
                 f.render_widget(hint, chunks[1]);
 
@@ -124,19 +134,26 @@ impl RatatuiSelector {
 
                 let list_items: Vec<ListItem> = filtered
                     .iter()
-                    .map(|&i| ListItem::new(selector.items()[i].as_str()))
+                    .map(|&i| {
+                        if selector.is_multi_select() {
+                            let marker = if selector.is_checked(i) { '*' } else { ' ' };
+                            ListItem::new(format!("[{marker}] {}", selector.items()[i]))
+                        } else {
+                            ListItem::new(selector.items()[i].as_str())
+                        }
+                    })
                     .collect();
                 let mut ls = ListState::default();
                 ls.select(Some(selector.selected_index()));
                 let list = List::new(list_items)
-                    .style(Style::default().fg(Color::White))
+                    .style(Style::default().fg(Color::Reset))
                     .block(
                         Block::default()
                             .borders(Borders::ALL)
-                            .border_style(Style::default().fg(Color::Blue)),
+                            .border_style(Style::default().fg(Color::Reset)),
                     )
                     .highlight_symbol("> ")
-                    .highlight_style(Style::default().fg(Color::Yellow).bg(Color::DarkGray));
+                    .highlight_style(Style::default().add_modifier(Modifier::REVERSED));
                 f.render_stateful_widget(list, chunks[2], &mut ls);
             })?;
 
@@ -167,13 +184,14 @@ impl SelectorRunner for RatatuiSelector {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ratatui::{Frame, Terminal, layout::Position};
+    use ratatui::{Frame, Terminal, buffer::Buffer, layout::Position, style::Color};
     use std::cell::RefCell;
 
     thread_local! {
         static EVENTS: RefCell<Vec<crossterm::event::Event>> =
             const { RefCell::new(Vec::new()) };
         static LAST_CURSOR_POSITION: RefCell<Option<Position>> = const { RefCell::new(None) };
+        static LAST_BUFFER: RefCell<Option<Buffer>> = const { RefCell::new(None) };
         static SETUP_FAILS: RefCell<bool> = const { RefCell::new(false) };
         static DRAW_FAILS: RefCell<bool> = const { RefCell::new(false) };
         static READ_FAILS: RefCell<bool> = const { RefCell::new(false) };
@@ -183,10 +201,23 @@ mod tests {
     fn reset_fake_state() {
         EVENTS.with(|e| e.borrow_mut().clear());
         LAST_CURSOR_POSITION.with(|p| *p.borrow_mut() = None);
+        LAST_BUFFER.with(|b| *b.borrow_mut() = None);
         SETUP_FAILS.with(|f| *f.borrow_mut() = false);
         DRAW_FAILS.with(|f| *f.borrow_mut() = false);
         READ_FAILS.with(|f| *f.borrow_mut() = false);
         RESTORE_FAILS.with(|f| *f.borrow_mut() = false);
+    }
+
+    fn last_buffer_text() -> String {
+        LAST_BUFFER.with(|buffer| {
+            let buffer = buffer.borrow();
+            let buffer = buffer.as_ref().expect("fake terminal did not draw");
+            (0..buffer.area.height)
+                .flat_map(|y| {
+                    (0..buffer.area.width).map(move |x| buffer[(x, y)].symbol().to_string())
+                })
+                .collect()
+        })
     }
 
     fn set_restore_fails(v: bool) {
@@ -310,6 +341,9 @@ mod tests {
                 LAST_CURSOR_POSITION.with(|p| {
                     *p.borrow_mut() = Some(terminal.backend().cursor_position());
                 });
+                LAST_BUFFER.with(|b| {
+                    *b.borrow_mut() = Some(terminal.backend().buffer().clone());
+                });
             }
             result
         }
@@ -374,6 +408,69 @@ mod tests {
         assert_eq!(result.unwrap(), SelectionResult::Selected(0));
     }
 
+    #[test]
+    fn multi_selects_two_items_with_space_and_enter() {
+        reset_fake_state();
+        push_events(vec![key_char(' '), key_down(), key_char(' '), key_enter()]);
+
+        let mut selector = Selector::new_multi(vec!["first".into(), "second".into()]);
+        let result = run_with_fake(&mut selector, "> ", "hint");
+        assert_eq!(result.unwrap(), SelectionResult::SelectedMany(vec![0, 1]));
+    }
+
+    #[test]
+    fn multi_select_renders_unchecked_markers_and_hint() {
+        reset_fake_state();
+        push_events(vec![key_esc()]);
+
+        let mut selector = Selector::new_multi(vec!["first".into(), "second".into()]);
+        run_with_fake(&mut selector, "> ", "Select worktrees").unwrap();
+        let text = last_buffer_text();
+
+        assert!(text.contains("[ ] first"));
+        assert!(text.contains("[ ] second"));
+        assert!(
+            text.contains("Select worktrees Space to toggle, Enter to continue, Esc to cancel")
+        );
+    }
+
+    #[test]
+    fn multi_select_renders_checked_marker_after_space() {
+        reset_fake_state();
+        push_events(vec![key_char(' '), key_enter()]);
+
+        let mut selector = Selector::new_multi(vec!["first".into(), "second".into()]);
+        run_with_fake(&mut selector, "> ", "hint").unwrap();
+        let text = last_buffer_text();
+
+        assert!(text.contains("[*] first"));
+        assert!(text.contains("[ ] second"));
+    }
+
+    #[test]
+    fn multi_select_uses_terminal_default_colors() {
+        reset_fake_state();
+        push_events(vec![key_esc()]);
+
+        let mut selector = Selector::new_multi(vec!["first".into(), "second".into()]);
+        run_with_fake(&mut selector, "> ", "hint").unwrap();
+
+        LAST_BUFFER.with(|buffer| {
+            let buffer = buffer.borrow();
+            let buffer = buffer.as_ref().expect("fake terminal did not draw");
+            let marker_cells: Vec<_> = buffer
+                .content
+                .iter()
+                .filter(|cell| cell.symbol() == "[")
+                .collect();
+            assert_eq!(marker_cells.len(), 2);
+            assert!(
+                marker_cells
+                    .iter()
+                    .all(|cell| cell.fg == Color::Reset && cell.bg == Color::Reset)
+            );
+        });
+    }
     #[test]
     fn cancels_on_escape() {
         reset_fake_state();
@@ -476,6 +573,7 @@ mod tests {
     fn plain_j_and_k_remain_query_input() {
         assert_eq!(key_from_event(key_char('j')), Key::Char('j'));
         assert_eq!(key_from_event(key_char('k')), Key::Char('k'));
+        assert_eq!(key_from_event(key_char(' ')), Key::Space);
     }
 
     #[test]

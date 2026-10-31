@@ -8,6 +8,7 @@ pub enum Key {
     Up,
     Esc,
     Enter,
+    Space,
     Unknown,
 }
 
@@ -16,16 +17,41 @@ pub struct Selector {
     query: String,
     selected_index: usize,
     allow_custom: bool,
+    multi_select: bool,
+    checked: Vec<bool>,
 }
 
 impl Selector {
     pub fn new(items: Vec<String>, allow_custom: bool) -> Self {
+        let checked = vec![false; items.len()];
         Self {
             items,
             query: String::new(),
             selected_index: 0,
             allow_custom,
+            multi_select: false,
+            checked,
         }
+    }
+
+    pub fn new_multi(items: Vec<String>) -> Self {
+        let checked = vec![false; items.len()];
+        Self {
+            items,
+            query: String::new(),
+            selected_index: 0,
+            allow_custom: false,
+            multi_select: true,
+            checked,
+        }
+    }
+
+    pub fn is_multi_select(&self) -> bool {
+        self.multi_select
+    }
+
+    pub fn is_checked(&self, index: usize) -> bool {
+        self.checked.get(index).copied().unwrap_or(false)
     }
 
     pub fn filter(&self, query: &str) -> Vec<usize> {
@@ -63,6 +89,19 @@ impl Selector {
                 self.selected_index = 0;
                 None
             }
+            Key::Space => {
+                if self.multi_select {
+                    if let Some(&original_index) = filtered.get(self.selected_index)
+                        && let Some(checked) = self.checked.get_mut(original_index)
+                    {
+                        *checked = !*checked;
+                    }
+                } else {
+                    self.query.push(' ');
+                    self.selected_index = 0;
+                }
+                None
+            }
             Key::Backspace => {
                 self.query.pop();
                 self.selected_index = 0;
@@ -85,7 +124,15 @@ impl Selector {
             }
             Key::Esc => Some(SelectionResult::Cancelled),
             Key::Enter => {
-                if let Some(&idx) = filtered.get(self.selected_index) {
+                if self.multi_select {
+                    Some(SelectionResult::SelectedMany(
+                        self.checked
+                            .iter()
+                            .enumerate()
+                            .filter_map(|(index, checked)| checked.then_some(index))
+                            .collect(),
+                    ))
+                } else if let Some(&idx) = filtered.get(self.selected_index) {
                     Some(SelectionResult::Selected(idx))
                 } else if self.allow_custom && !self.query.trim().is_empty() {
                     Some(SelectionResult::Custom(self.query.trim().to_string()))
@@ -113,6 +160,7 @@ impl Selector {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum SelectionResult {
     Selected(usize),
+    SelectedMany(Vec<usize>),
     Custom(String),
     Cancelled,
 }
@@ -378,5 +426,71 @@ mod tests {
         let mut selector = Selector::new(items, false);
         let result = selector.process_key(Key::Enter, &[]);
         assert_eq!(result, None);
+    }
+    #[test]
+    fn multi_selector_starts_unchecked() {
+        let selector = Selector::new_multi(vec!["a".to_string(), "b".to_string()]);
+        assert!(selector.is_multi_select());
+        assert!(!selector.is_checked(0));
+        assert!(!selector.is_checked(1));
+    }
+
+    #[test]
+    fn multi_selector_space_toggles_current_original_item() {
+        let mut selector = Selector::new_multi(vec!["a".to_string(), "b".to_string()]);
+        assert_eq!(selector.process_key(Key::Space, &[0, 1]), None);
+        assert!(selector.is_checked(0));
+        selector.process_key(Key::Down, &[0, 1]);
+        selector.process_key(Key::Space, &[0, 1]);
+        assert!(selector.is_checked(1));
+        selector.process_key(Key::Space, &[0, 1]);
+        assert!(!selector.is_checked(1));
+    }
+
+    #[test]
+    fn multi_selector_enter_returns_all_checked_original_indices() {
+        let mut selector =
+            Selector::new_multi(vec!["a".to_string(), "b".to_string(), "c".to_string()]);
+        selector.process_key(Key::Down, &[0, 1, 2]);
+        selector.process_key(Key::Space, &[0, 1, 2]);
+        selector.process_key(Key::Up, &[0, 1, 2]);
+        selector.process_key(Key::Space, &[0, 1, 2]);
+        assert_eq!(
+            selector.process_key(Key::Enter, &[0, 1, 2]),
+            Some(SelectionResult::SelectedMany(vec![0, 1]))
+        );
+    }
+
+    #[test]
+    fn multi_selector_checks_survive_filtering() {
+        let mut selector = Selector::new_multi(vec![
+            "alpha".to_string(),
+            "beta".to_string(),
+            "gamma".to_string(),
+        ]);
+        let filtered = selector.filter("gamma");
+        assert_eq!(filtered, vec![2]);
+        selector.process_key(Key::Space, &filtered);
+        assert!(selector.is_checked(2));
+        assert_eq!(
+            selector.process_key(Key::Enter, &filtered),
+            Some(SelectionResult::SelectedMany(vec![2]))
+        );
+    }
+
+    #[test]
+    fn multi_selector_enter_with_no_checks_returns_empty_selection() {
+        let mut selector = Selector::new_multi(vec!["a".to_string()]);
+        assert_eq!(
+            selector.process_key(Key::Enter, &[0]),
+            Some(SelectionResult::SelectedMany(Vec::new()))
+        );
+    }
+
+    #[test]
+    fn single_selector_space_remains_query_input() {
+        let mut selector = Selector::new(vec!["a".to_string()], false);
+        selector.process_key(Key::Space, &[0]);
+        assert_eq!(selector.query(), " ");
     }
 }
