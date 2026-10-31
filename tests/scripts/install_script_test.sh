@@ -62,7 +62,8 @@ EOF
 
 run_installer() {
   local fixture="$1"
-  (cd "$fixture" && HOME="$fixture/home" PATH="$fixture/bin:/usr/bin:/bin" \
+  local test_path="${TEST_PATH:-$fixture/bin:/usr/bin:/bin}"
+  (cd "$fixture" && HOME="$fixture/home" PATH="$test_path" \
     CARGO_LOG="$fixture/cargo.log" ARCHIVE_SOURCE="$fixture/archive" \
     TMUX_LOG="$fixture/tmux.log" SSH_AUTH_SOCK="$fixture/agent.sock" \
     bash "$fixture/worktree.tmux")
@@ -95,6 +96,22 @@ grep -Fq -- "bind-key -T prefix W run-shell -b $fixture/home/.cargo/bin/tmux-wor
   || fail 'Choose binding did not use default-path CLI'
 grep -Fq -- "bind-key -T prefix D run-shell -b $fixture/home/.cargo/bin/tmux-worktrees cleanup" "$fixture/tmux.log" \
   || fail 'Cleanup binding did not use default-path CLI'
+
+fixture="$TEMP_DIR/plugin-path"
+make_fixture "$fixture"
+mkdir -p "$fixture/archive" "$fixture/home/.cargo/bin" \
+  "$fixture/home/.tmux/plugins/tmux-worktrees"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$fixture/home/.cargo/bin/tmux-worktrees"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$fixture/home/.tmux/plugins/tmux-worktrees/tmux-worktrees"
+chmod +x "$fixture/home/.cargo/bin/tmux-worktrees" \
+  "$fixture/home/.tmux/plugins/tmux-worktrees/tmux-worktrees"
+TEST_PATH="$fixture/home/.tmux/plugins/tmux-worktrees:$fixture/bin:/usr/bin:/bin" \
+  run_installer "$fixture"
+[[ ! -s "$fixture/cargo.log" ]] || fail 'Cargo build ran despite default path beside plugin'
+grep -Fq -- "bind-key -T prefix W run-shell -b $fixture/home/.cargo/bin/tmux-worktrees choose" "$fixture/tmux.log" \
+  || fail 'Choose binding preferred plugin binary over Cargo default path'
+grep -Fq -- "bind-key -T prefix D run-shell -b $fixture/home/.cargo/bin/tmux-worktrees cleanup" "$fixture/tmux.log" \
+  || fail 'Cleanup binding preferred plugin binary over Cargo default path'
 
 fixture="$TEMP_DIR/download"
 make_fixture "$fixture"
