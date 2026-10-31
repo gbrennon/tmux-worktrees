@@ -334,6 +334,7 @@ impl TmuxPort for FakeTmxWindowFail {
 
 pub struct FakeTmxTest {
     pub kill_called: Rc<Cell<bool>>,
+    pub kill_windows: Rc<RefCell<Vec<String>>>,
     pub show_error_called: Rc<Cell<bool>>,
     pub show_error_msg: Rc<RefCell<String>>,
     pub display_msgs: Rc<RefCell<Vec<String>>>,
@@ -348,6 +349,7 @@ impl FakeTmxTest {
     pub fn new(repo: &str) -> Self {
         Self {
             kill_called: Rc::new(Cell::new(false)),
+            kill_windows: Rc::new(RefCell::new(Vec::new())),
             show_error_called: Rc::new(Cell::new(false)),
             show_error_msg: Rc::new(RefCell::new(String::new())),
             display_msgs: Rc::new(RefCell::new(Vec::new())),
@@ -398,8 +400,9 @@ impl TmuxPort for FakeTmxTest {
         }
         Ok((0, String::new(), String::new()))
     }
-    fn kill_window(&self, _n: &str) -> Result<()> {
+    fn kill_window(&self, name: &str) -> Result<()> {
         self.kill_called.set(true);
+        self.kill_windows.borrow_mut().push(name.to_string());
         Ok(())
     }
 }
