@@ -15,8 +15,9 @@ A tmux plugin to create, switch between, and clean up
 - Clean up merged or stale worktrees without leaving tmux windows behind.
 
 **Demo**: `prefix + W` opens a picker — type a branch name, press Enter, and
-you're in a fresh tmux window pointing at that worktree.  `prefix + D` removes
-one just as fast.
+you're in a fresh tmux window pointing at that worktree. `prefix + D` opens a
+multi-select cleanup picker: press Space to toggle worktrees, Enter to review,
+then choose Yes or No.
 
 ---
 
