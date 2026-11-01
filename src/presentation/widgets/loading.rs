@@ -18,10 +18,10 @@ impl<'a> LoadingIndicator<'a> {
                 .label(label.into())
                 .throbber_set(BRAILLE_SIX)
                 .use_type(WhichUse::Spin)
-                .style(Style::default().fg(Color::Reset))
+                .style(Style::default().fg(Color::Cyan))
                 .throbber_style(
                     Style::default()
-                        .fg(Color::Reset)
+                        .fg(Color::Yellow)
                         .add_modifier(Modifier::BOLD),
                 ),
             state: ThrobberState::default(),
