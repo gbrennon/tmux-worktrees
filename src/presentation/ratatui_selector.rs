@@ -184,7 +184,7 @@ impl SelectorRunner for RatatuiSelector {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ratatui::{Frame, Terminal, buffer::Buffer, layout::Position, style::Color};
+    use ratatui::{Frame, Terminal, buffer::Buffer, layout::Position};
     use std::cell::RefCell;
 
     thread_local! {
