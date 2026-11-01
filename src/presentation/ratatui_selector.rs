@@ -1,7 +1,7 @@
 use fuzzy_matcher::{FuzzyMatcher, clangd::ClangdMatcher};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Position},
-    style::{Color, Modifier, Style},
+    style::{Color, Style},
     text::Text,
     widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
 };
@@ -110,18 +110,18 @@ impl RatatuiSelector {
                     .split(area);
                 let input_text = format!("{prompt}{}", selector.query());
                 let input = Paragraph::new(input_text.clone())
-                    .style(Style::default().fg(Color::Reset))
+                    .style(Style::default().fg(Color::White))
                     .block(
                         Block::default()
                             .borders(Borders::ALL)
-                            .border_style(Style::default().fg(Color::Reset)),
+                            .border_style(Style::default().fg(Color::Cyan)),
                     );
                 let hint_text = if selector.is_multi_select() {
                     format!("{header} Space to toggle, Enter to continue, Esc to cancel")
                 } else {
                     header.to_string()
                 };
-                let hint = Paragraph::new(hint_text).style(Style::default().fg(Color::Reset));
+                let hint = Paragraph::new(hint_text).style(Style::default().fg(Color::DarkGray));
                 f.render_widget(input, chunks[0]);
                 f.render_widget(hint, chunks[1]);
 
@@ -146,14 +146,14 @@ impl RatatuiSelector {
                 let mut ls = ListState::default();
                 ls.select(Some(selector.selected_index()));
                 let list = List::new(list_items)
-                    .style(Style::default().fg(Color::Reset))
+                    .style(Style::default().fg(Color::White))
                     .block(
                         Block::default()
                             .borders(Borders::ALL)
-                            .border_style(Style::default().fg(Color::Reset)),
+                            .border_style(Style::default().fg(Color::Blue)),
                     )
                     .highlight_symbol("> ")
-                    .highlight_style(Style::default().add_modifier(Modifier::REVERSED));
+                    .highlight_style(Style::default().fg(Color::Yellow).bg(Color::DarkGray));
                 f.render_stateful_widget(list, chunks[2], &mut ls);
             })?;
 
@@ -184,7 +184,7 @@ impl SelectorRunner for RatatuiSelector {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use ratatui::{Frame, Terminal, buffer::Buffer, layout::Position, style::Color};
+    use ratatui::{Frame, Terminal, buffer::Buffer, layout::Position};
     use std::cell::RefCell;
 
     thread_local! {
@@ -447,30 +447,6 @@ mod tests {
         assert!(text.contains("[ ] second"));
     }
 
-    #[test]
-    fn multi_select_uses_terminal_default_colors() {
-        reset_fake_state();
-        push_events(vec![key_esc()]);
-
-        let mut selector = Selector::new_multi(vec!["first".into(), "second".into()]);
-        run_with_fake(&mut selector, "> ", "hint").unwrap();
-
-        LAST_BUFFER.with(|buffer| {
-            let buffer = buffer.borrow();
-            let buffer = buffer.as_ref().expect("fake terminal did not draw");
-            let marker_cells: Vec<_> = buffer
-                .content
-                .iter()
-                .filter(|cell| cell.symbol() == "[")
-                .collect();
-            assert_eq!(marker_cells.len(), 2);
-            assert!(
-                marker_cells
-                    .iter()
-                    .all(|cell| cell.fg == Color::Reset && cell.bg == Color::Reset)
-            );
-        });
-    }
     #[test]
     fn cancels_on_escape() {
         reset_fake_state();
