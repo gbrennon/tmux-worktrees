@@ -9,6 +9,7 @@ CURRENT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PLUGIN_NAME="tmux-worktrees"
 PLUGIN_DIR="$HOME/.tmux/plugins/$PLUGIN_NAME"
 BINARY_NAME="tmux-worktrees"
+CARGO_BIN_DIR="${CARGO_HOME:-$HOME/.cargo}/bin"
 BINARY_PATH=""
 REPO_DIR="$CURRENT_DIR"
 CARGO_MANIFEST="$REPO_DIR/Cargo.toml"
@@ -26,9 +27,16 @@ ensure_plugin_dir() {
 }
 
 resolve_installed_binary() {
+    local installed_binary
+    installed_binary="$(command -v "$BINARY_NAME" 2>/dev/null || true)"
+    if [[ -n "$installed_binary" && -x "$installed_binary" ]]; then
+        BINARY_PATH="$installed_binary"
+        return 0
+    fi
+
     local default_path
     for default_path in \
-        "$HOME/.cargo/bin/$BINARY_NAME" \
+        "$CARGO_BIN_DIR/$BINARY_NAME" \
         "$HOME/.local/bin/$BINARY_NAME" \
         "/usr/local/bin/$BINARY_NAME" \
         "/usr/bin/$BINARY_NAME"; do
@@ -37,13 +45,6 @@ resolve_installed_binary() {
             return 0
         fi
     done
-
-    local installed_binary
-    installed_binary="$(command -v "$BINARY_NAME" 2>/dev/null || true)"
-    if [[ -n "$installed_binary" && -x "$installed_binary" ]]; then
-        BINARY_PATH="$installed_binary"
-        return 0
-    fi
     return 1
 }
 

@@ -107,11 +107,11 @@ chmod +x "$fixture/home/.cargo/bin/tmux-worktrees" \
   "$fixture/home/.tmux/plugins/tmux-worktrees/tmux-worktrees"
 TEST_PATH="$fixture/home/.tmux/plugins/tmux-worktrees:$fixture/bin:/usr/bin:/bin" \
   run_installer "$fixture"
-[[ ! -s "$fixture/cargo.log" ]] || fail 'Cargo build ran despite default path beside plugin'
-grep -Fq -- "bind-key -T prefix W run-shell -b $fixture/home/.cargo/bin/tmux-worktrees choose" "$fixture/tmux.log" \
-  || fail 'Choose binding preferred plugin binary over Cargo default path'
-grep -Fq -- "bind-key -T prefix D run-shell -b $fixture/home/.cargo/bin/tmux-worktrees cleanup" "$fixture/tmux.log" \
-  || fail 'Cleanup binding preferred plugin binary over Cargo default path'
+[[ ! -s "$fixture/cargo.log" ]] || fail 'Cargo build ran despite PATH CLI'
+grep -Fq -- "bind-key -T prefix W run-shell -b $fixture/home/.tmux/plugins/tmux-worktrees/tmux-worktrees choose" "$fixture/tmux.log" \
+  || fail 'Choose binding did not prefer PATH CLI over Cargo default path'
+grep -Fq -- "bind-key -T prefix D run-shell -b $fixture/home/.tmux/plugins/tmux-worktrees/tmux-worktrees cleanup" "$fixture/tmux.log" \
+  || fail 'Cleanup binding did not prefer PATH CLI over Cargo default path'
 
 fixture="$TEMP_DIR/download"
 make_fixture "$fixture"
